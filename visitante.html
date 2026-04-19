@@ -576,7 +576,23 @@ const SERVER_URL   = 'wss://merry-joy-production-4504.up.railway.app';
 const API_BASE     = 'https://merry-joy-production-4504.up.railway.app/api';
 const STUN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' }
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:global.relay.metered.ca:80',
+    username: 'e6a3d1f0b7c4a8b9e1d2',
+    credential: 'porteroVirtual2024'
+  },
+  {
+    urls: 'turn:global.relay.metered.ca:443',
+    username: 'e6a3d1f0b7c4a8b9e1d2',
+    credential: 'porteroVirtual2024'
+  },
+  {
+    urls: 'turns:global.relay.metered.ca:443',
+    username: 'e6a3d1f0b7c4a8b9e1d2',
+    credential: 'porteroVirtual2024'
+  }
 ];
 const RING_TIMEOUT_MS = 30000;
 // ============================================================
@@ -720,7 +736,7 @@ async function startCall() {
   // Pedir cámara + micrófono
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
+      video: { facingMode: 'user' },
       audio: true
     });
     document.getElementById('local-video').srcObject = localStream;
