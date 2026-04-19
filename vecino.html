@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mi Portero">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Mi Portero</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0c0c0e; --surface: #16161a; --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+    --text: #ededf0; --muted: #7a7a8a;
+    --green: #22c55e; --green-dim: rgba(34,197,94,0.12);
+    --red: #ef4444; --red-dim: rgba(239,68,68,0.12);
+    --amber: #f59e0b; --accent: #6366f1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100dvh; display: flex; flex-direction: column;
+  }
+
+  /* ── Setup ── */
+  #screen-setup {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; padding: 32px 24px; position: relative; z-index: 1;
+  }
+
+  .setup-card {
+    width: 100%; max-width: 360px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 24px; padding: 32px 28px;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  .logo-icon { width: 36px; height: 36px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .logo-text { font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+
+  /* Banner instalar */
+  .install-banner {
+    background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 20px;
+    font-size: 13px; color: #a5b4fc; line-height: 1.5; display: none;
+  }
+  .install-banner strong { color: var(--accent); display: block; margin-bottom: 3px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; }
+
+  label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+
+  .select-wrap { position: relative; margin-bottom: 10px; }
+  .select-label-inner { position: absolute; top: 9px; left: 14px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); pointer-events: none; z-index: 1; }
+
+  select {
+    width: 100%; padding: 28px 36px 12px 14px;
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 600;
+    cursor: pointer; appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+    transition: border-color 0.2s;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+  select option { background: #1e1e24; }
+
+  .selects-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+
+  .btn-activate {
+    width: 100%; padding: 15px; background: var(--green); color: #000;
+    border: none; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-activate:active { transform: scale(0.98); }
+
+  .permissions-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 14px; line-height: 1.5; }
+
+  /* ── Standby ── */
+  #screen-standby {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; padding: 32px 24px; text-align: center;
+  }
+
+  .building-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 6px 14px;
+    font-size: 12px; color: var(--muted); margin-bottom: 24px;
+  }
+
+  .standby-floor { font-family: 'DM Mono', monospace; font-size: 56px; font-weight: 500; letter-spacing: 0.03em; margin-bottom: 4px; }
+  .standby-building-name { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .standby-address { font-size: 13px; color: var(--muted); opacity: 0.6; margin-bottom: 36px; }
+
+  .status-indicator { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); animation: pulse-dot 2.5s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .status-text { font-size: 14px; font-weight: 500; color: var(--green); }
+  .standby-sub { font-size: 13px; color: var(--muted); margin-bottom: 36px; }
+
+  .push-status {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 10px 14px;
+    font-size: 12px; color: var(--muted); margin-bottom: 24px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .push-ok { color: var(--green); }
+  .push-warn { color: var(--amber); }
+
+  .btn-change {
+    padding: 10px 20px; background: transparent;
+    border: 1px solid var(--border2); border-radius: 10px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+  }
+
+  /* ── Llamada entrante ── */
+  #screen-incoming {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; padding: 32px 24px; text-align: center;
+  }
+
+  .incoming-tag { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); margin-bottom: 12px; }
+
+  .avatar {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: var(--surface2); border: 2px solid var(--amber);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    animation: incoming-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes incoming-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
+    50% { box-shadow: 0 0 0 22px rgba(245,158,11,0); }
+  }
+
+  h2 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .incoming-building { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .incoming-address { font-size: 12px; color: var(--muted); opacity: 0.7; margin-bottom: 32px; }
+
+  .incoming-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 300px; }
+
+  .btn-accept {
+    padding: 18px; background: var(--green); color: #000;
+    border: none; border-radius: 16px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-accept:active { transform: scale(0.97); }
+
+  .btn-reject {
+    padding: 18px; background: var(--red-dim); color: var(--red);
+    border: 1px solid rgba(239,68,68,0.25); border-radius: 16px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-reject:active { transform: scale(0.97); }
+
+  /* ── En llamada ── */
+  #screen-call { display: none; flex-direction: column; flex: 1; position: relative; }
+
+  #remote-video { width: 100%; flex: 1; object-fit: cover; background: #111; display: block; min-height: 100dvh; }
+
+  .call-overlay {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 52px 20px 16px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+    display: flex; align-items: flex-start; justify-content: space-between; z-index: 10;
+  }
+  .call-info-label { font-size: 10px; color: rgba(255,255,255,0.5); margin-bottom: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .call-info-main { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: #fff; }
+  .call-info-addr { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  .call-timer { font-family: 'DM Mono', monospace; font-size: 15px; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.45); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12); }
+
+  .audio-badge {
+    position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.65);
+    font-size: 11px; padding: 6px 14px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.12); white-space: nowrap; z-index: 10;
+  }
+
+  .call-controls {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 20px 24px 48px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+    display: flex; align-items: center; justify-content: center; gap: 20px; z-index: 10;
+  }
+
+  .ctrl-btn { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .ctrl-btn:active { transform: scale(0.9); }
+  .ctrl-mute { background: rgba(255,255,255,0.18); color: #fff; }
+  .ctrl-mute.muted { background: rgba(239,68,68,0.55); }
+  .ctrl-hangup { width: 68px; height: 68px; background: var(--red); color: #fff; }
+
+  .video-placeholder {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--bg); gap: 14px; z-index: 5; transition: opacity 0.5s;
+  }
+  .video-placeholder p { font-size: 14px; color: var(--muted); }
+
+  audio { display: none; }
+</style>
+</head>
+<body>
+
+<audio id="visitor-audio" autoplay playsinline></audio>
+
+<!-- ══ SETUP ══ -->
+<div id="screen-setup">
+  <div class="setup-card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <div class="logo-text">Mi Portero</div>
+    </div>
+
+    <div class="install-banner" id="install-banner">
+      <strong>💡 Instala la app en tu móvil</strong>
+      Para recibir avisos con el móvil bloqueado: en iPhone pulsa el botón de compartir → "Añadir a inicio". En Android pulsa ⋮ → "Instalar app".
+    </div>
+
+    <h1>Tu portero virtual</h1>
+    <p class="subtitle">Selecciona tu piso. Recibirás una notificación cada vez que llamen, aunque tengas el móvil en el bolsillo.</p>
+
+    <label>Tu edificio y piso</label>
+
+    <!-- Selector de portal (si el vecino tiene varios portales) -->
+    <div class="select-wrap" id="portal-wrap" style="display:none">
+      <div class="select-label-inner">Portal</div>
+      <select id="sel-portal" onchange="onPortalChange()">
+        <option value="">—</option>
+      </select>
+    </div>
+
+    <div class="selects-row">
+      <div class="select-wrap">
+        <div class="select-label-inner">Piso</div>
+        <select id="sel-floor">
+          <option value="1">1º</option><option value="2">2º</option>
+          <option value="3" selected>3º</option><option value="4">4º</option>
+          <option value="5">5º</option><option value="6">6º</option>
+          <option value="7">7º</option><option value="8">8º</option>
+        </select>
+      </div>
+      <div class="select-wrap">
+        <div class="select-label-inner">Letra</div>
+        <select id="sel-letter">
+          <option value="A">A</option><option value="B" selected>B</option>
+          <option value="C">C</option><option value="D">D</option><option value="E">E</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-activate" onclick="activate()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      Activar portero
+    </button>
+
+    <p class="permissions-note">Se pedirá permiso al micrófono y a las notificaciones.<br>Tu cámara no se activa en ningún momento.</p>
+  </div>
+</div>
+
+<!-- ══ STANDBY ══ -->
+<div id="screen-standby">
+  <div class="building-pill" id="standby-building-pill">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+    </svg>
+    <span id="standby-building-pill-text">—</span>
+  </div>
+
+  <div class="standby-floor" id="standby-floor-label">3B</div>
+  <div class="standby-building-name" id="standby-name-label">—</div>
+  <div class="standby-address" id="standby-address-label">—</div>
+
+  <div class="status-indicator">
+    <div class="status-dot"></div>
+    <div class="status-text">Escuchando llamadas</div>
+  </div>
+  <div class="standby-sub">Recibirás una notificación cuando llamen</div>
+
+  <div class="push-status">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+    </svg>
+    <span id="push-status-text">Notificaciones: verificando...</span>
+  </div>
+
+  <button class="btn-change" onclick="goSetup()">Cambiar piso</button>
+</div>
+
+<!-- ══ LLAMADA ENTRANTE ══ -->
+<div id="screen-incoming">
+  <div class="incoming-tag">🔔 Llamada entrante</div>
+  <div class="avatar">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  </div>
+  <h2>Visita en el portal</h2>
+  <div class="incoming-building" id="inc-building">—</div>
+  <div class="incoming-address" id="inc-address">—</div>
+
+  <div class="incoming-btns">
+    <button class="btn-accept" onclick="acceptCall()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+      Contestar
+    </button>
+    <button class="btn-reject" onclick="rejectCall()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+      Rechazar
+    </button>
+  </div>
+</div>
+
+<!-- ══ EN LLAMADA ══ -->
+<div id="screen-call">
+  <video id="remote-video" autoplay playsinline></video>
+
+  <div class="video-placeholder" id="video-placeholder">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.3">
+      <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+    </svg>
+    <p>Conectando vídeo...</p>
+  </div>
+
+  <div class="call-overlay">
+    <div>
+      <div class="call-info-label">Desde el portal</div>
+      <div class="call-info-main" id="call-floor-label">—</div>
+      <div class="call-info-addr" id="call-building-label">—</div>
+    </div>
+    <div class="call-timer" id="call-timer">00:00</div>
+  </div>
+
+  <div class="audio-badge">🎤 Tu micro activo &nbsp;·&nbsp; 📵 Sin tu cámara</div>
+
+  <div class="call-controls">
+    <button class="ctrl-btn ctrl-mute" id="btn-mute" onclick="toggleMute()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/>
+        <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+      </svg>
+    </button>
+    <button class="ctrl-btn ctrl-hangup" onclick="hangup()">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="transform:rotate(135deg)">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+const SERVER_URL = 'wss://merry-joy-production-4504.up.railway.app';
+const API_BASE   = 'https://merry-joy-production-4504.up.railway.app/api';
+const STUN_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
+// ============================================================
+
+let ws, pc, micStream;
+let myRoom = '';
+let myPortalId = '';
+let portalInfo = null;
+let muted = false;
+let timerInterval, timerSeconds = 0;
+let callStartTime = null;
+
+// Leer portal_id de la URL (si el vecino accede con un enlace de su comunidad)
+const urlParams  = new URLSearchParams(location.search);
+const urlPortal  = urlParams.get('portal') || '';
+const urlContest = urlParams.get('contestar') === 'true';
+
+function show(id) {
+  ['screen-setup','screen-standby','screen-incoming','screen-call'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  });
+}
+
+// ── Cargar info del portal para mostrar nombre/dirección ──
+async function loadPortalInfo(portalId) {
+  try {
+    const res = await fetch(`${API_BASE}/portal/${portalId}/public`);
+    if (res.ok) {
+      portalInfo = await res.json();
+      return portalInfo;
+    }
+  } catch {}
+  return null;
+}
+
+// ── Activar ───────────────────────────────────────────────
+async function activate() {
+  const floor  = document.getElementById('sel-floor').value;
+  const letter = document.getElementById('sel-letter').value;
+
+  // Usar portal de la URL o el seleccionado
+  myPortalId = urlPortal || document.getElementById('sel-portal').value || 'demo';
+  myRoom = `${myPortalId}-${floor}-${letter}`;
+
+  // Guardar en localStorage para recuperar si llega push
+  localStorage.setItem('portero-room',   myRoom);
+  localStorage.setItem('portero-portal', myPortalId);
+  localStorage.setItem('portero-floor',  floor);
+  localStorage.setItem('portero-letter', letter);
+
+  // Pedir micrófono
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(err) {
+    alert('Necesitamos acceso al micrófono.\n' + err.message);
+    return;
+  }
+
+  // Cargar datos del portal
+  const info = await loadPortalInfo(myPortalId);
+
+  // Actualizar pantalla standby
+  const floorLabel = floor + 'º ' + letter;
+  document.getElementById('standby-floor-label').textContent  = floor + 'º ' + letter;
+  document.getElementById('standby-name-label').textContent   = info ? info.name    : myPortalId;
+  document.getElementById('standby-address-label').textContent = info ? info.address : '';
+  document.getElementById('standby-building-pill-text').textContent = info ? info.name : myPortalId;
+  document.getElementById('call-floor-label').textContent   = floorLabel;
+  document.getElementById('call-building-label').textContent = info ? info.name + ' · ' + info.address : '';
+  document.getElementById('inc-building').textContent = info ? info.name : '';
+  document.getElementById('inc-address').textContent  = info ? info.address : '';
+
+  // Push
+  document.getElementById('install-banner').style.display = 'block';
+  await setupPush();
+
+  show('screen-standby');
+  connectWS();
+}
+
+// ── Push notifications ────────────────────────────────────
+async function setupPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    setPushStatus(false, 'No disponible en este navegador');
+    return;
+  }
+
+  let reg;
+  try { reg = await navigator.serviceWorker.register('sw.js'); }
+  catch { setPushStatus(false, 'Error al registrar'); return; }
+
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { setPushStatus(false, 'Permiso denegado'); return; }
+
+  try {
+    // Obtener clave VAPID del servidor
+    const keyRes = await fetch(`${API_BASE}/vapid-public-key`);
+    const { key } = await keyRes.json();
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key)
+    });
+
+    await fetch(`${API_BASE}/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        portalId:    myPortalId,
+        floorNumber: localStorage.getItem('portero-floor'),
+        floorLetter: localStorage.getItem('portero-letter'),
+        subscription: sub
+      })
+    });
+
+    setPushStatus(true, 'Activas');
+  } catch { setPushStatus(false, 'Error al activar'); }
+}
+
+function setPushStatus(ok, msg) {
+  const el = document.getElementById('push-status-text');
+  el.textContent = 'Notificaciones: ' + msg;
+  el.className   = ok ? 'push-ok' : 'push-warn';
+}
+
+// ── WebSocket ─────────────────────────────────────────────
+function connectWS() {
+  ws = new WebSocket(SERVER_URL);
+
+  ws.onopen = () => send({ type: 'join', room: myRoom, role: 'neighbor', portalId: myPortalId });
+
+  ws.onmessage = async ({ data }) => {
+    const msg = JSON.parse(data);
+    if (msg.type === 'visitor-calling') { playRingtone(); show('screen-incoming'); }
+    if (msg.type === 'offer') await handleOffer(msg.sdp);
+    if (msg.type === 'ice') { try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {} }
+    if (msg.type === 'hangup') endCall(false);
+  };
+
+  ws.onclose = () => { setTimeout(() => { if (myRoom) connectWS(); }, 3000); };
+}
+
+function acceptCall() {
+  stopRingtone();
+  send({ type: 'neighbor-ready', room: myRoom });
+  document.getElementById('video-placeholder').style.display = 'flex';
+  document.getElementById('video-placeholder').style.opacity = '1';
+  show('screen-call');
+}
+
+function rejectCall() {
+  stopRingtone();
+  send({ type: 'busy', room: myRoom });
+  show('screen-standby');
+}
+
+async function handleOffer(sdp) {
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+  micStream.getAudioTracks().forEach(track => pc.addTrack(track, micStream));
+
+  pc.ontrack = ({ track, streams }) => {
+    if (track.kind === 'video') {
+      const video = document.getElementById('remote-video');
+      video.srcObject = streams[0];
+      video.onplaying = () => {
+        document.getElementById('video-placeholder').style.opacity = '0';
+        setTimeout(() => document.getElementById('video-placeholder').style.display = 'none', 500);
+      };
+    }
+    if (track.kind === 'audio') {
+      document.getElementById('visitor-audio').srcObject = streams[0];
+    }
+  };
+
+  pc.onicecandidate = ({ candidate }) => { if (candidate) send({ type: 'ice', room: myRoom, candidate }); };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') { callStartTime = Date.now(); startTimer(); }
+    if (['disconnected','failed','closed'].includes(pc.connectionState)) endCall(false);
+  };
+
+  await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  send({ type: 'answer', room: myRoom, sdp: pc.localDescription });
+}
+
+function hangup() { endCall(true); }
+
+function endCall(notify = true) {
+  stopTimer(); stopRingtone();
+  const duration = callStartTime ? Math.round((Date.now() - callStartTime) / 1000) : 0;
+  if (notify && ws && ws.readyState === WebSocket.OPEN) send({ type: 'hangup', room: myRoom, duration });
+  if (pc) { pc.close(); pc = null; }
+  callStartTime = null;
+  document.getElementById('remote-video').srcObject = null;
+  document.getElementById('video-placeholder').style.display = 'flex';
+  document.getElementById('video-placeholder').style.opacity = '1';
+  show('screen-standby');
+}
+
+function toggleMute() {
+  muted = !muted;
+  micStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  document.getElementById('btn-mute').classList.toggle('muted', muted);
+}
+
+function startTimer() {
+  timerSeconds = 0;
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2,'0');
+    const s = String(timerSeconds % 60).padStart(2,'0');
+    document.getElementById('call-timer').textContent = m + ':' + s;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+let ringtoneInterval;
+function playRingtone() {
+  if (!window.AudioContext) return;
+  const ctx = new AudioContext();
+  function beep() {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.35, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    o.start(); o.stop(ctx.currentTime + 0.45);
+  }
+  beep();
+  ringtoneInterval = setInterval(beep, 1800);
+}
+function stopRingtone() { clearInterval(ringtoneInterval); }
+
+function goSetup() { if (ws) ws.close(); if (pc) { pc.close(); pc = null; } show('screen-setup'); }
+function send(obj) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function keepAwake() {
+  if ('wakeLock' in navigator) { try { await navigator.wakeLock.request('screen'); } catch {} }
+}
+keepAwake();
+
+// Si el vecino llega desde una notificación push
+if (urlContest) {
+  const savedRoom   = localStorage.getItem('portero-room');
+  const savedPortal = localStorage.getItem('portero-portal');
+  const savedFloor  = localStorage.getItem('portero-floor');
+  const savedLetter = localStorage.getItem('portero-letter');
+  if (savedRoom) {
+    myRoom = savedRoom; myPortalId = savedPortal;
+    loadPortalInfo(savedPortal).then(info => {
+      document.getElementById('inc-building').textContent = info ? info.name : '';
+      document.getElementById('inc-address').textContent  = info ? info.address : '';
+      document.getElementById('call-building-label').textContent = info ? info.name : '';
+      document.getElementById('call-floor-label').textContent = savedFloor + 'º ' + savedLetter;
+    });
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+      micStream = stream;
+      show('screen-incoming');
+      connectWS();
+    }).catch(() => show('screen-setup'));
+  }
+}
+</script>
+</body>
+</html>
