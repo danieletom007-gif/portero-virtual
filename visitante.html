@@ -432,13 +432,13 @@
     <div class="selects-row">
       <div class="select-wrap">
         <div class="select-label-inner">Piso</div>
-        <select id="sel-floor" class="empty" onchange="onSelectChange()" onclick="onSelectChange()">
+        <select id="sel-floor" class="empty" onchange="onFloorChange()" ontouchend="setTimeout(onFloorChange,100)">
           <option value="">—</option>
         </select>
       </div>
       <div class="select-wrap">
         <div class="select-label-inner">Letra / Puerta</div>
-        <select id="sel-letter" class="empty" onchange="onSelectChange()" disabled>
+        <select id="sel-letter" class="empty" onchange="onSelectChange()" ontouchend="setTimeout(onSelectChange,100)">
           <option value="">—</option>
         </select>
       </div>
@@ -572,8 +572,8 @@
 // ============================================================
 //  CONFIGURACIÓN
 // ============================================================
-const SERVER_URL   = 'wss://merry-joy-production-4504.up.railway.app';
-const API_BASE     = 'https://merry-joy-production-4504.up.railway.app/api';
+const SERVER_URL   = 'wss://TU_SERVIDOR.com';
+const API_BASE     = 'https://TU_SERVIDOR.com/api';
 const STUN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' }
@@ -653,6 +653,19 @@ function populateFloors(floors) {
     opt.textContent = f.number + 'º';
     selFloor.appendChild(opt);
   });
+}
+
+function onFloorChange() {
+  const floorVal2 = document.getElementById("sel-floor").value;
+  const selLetter2 = document.getElementById("sel-letter");
+  selLetter2.innerHTML = "<option value=\x27\x27>—</option>";
+  if (floorVal2 && portalData) {
+    const floor2 = portalData.floors.find(f => f.number == floorVal2);
+    if (floor2) { floor2.letters.forEach(l => { const o=document.createElement("option"); o.value=l; o.textContent=l; selLetter2.appendChild(o); }); }
+    selLetter2.classList.remove("empty");
+    document.getElementById("sel-floor").classList.remove("empty");
+  }
+  onSelectChange();
 }
 
 function onSelectChange() {
