@@ -656,28 +656,14 @@ function populateFloors(floors) {
 }
 
 function onFloorChange() {
-  const floorVal2 = document.getElementById("sel-floor").value;
-  const selLetter2 = document.getElementById("sel-letter");
-  selLetter2.innerHTML = "<option value=\x27\x27>—</option>";
-  if (floorVal2 && portalData) {
-    const floor2 = portalData.floors.find(f => f.number == floorVal2);
-    if (floor2) { floor2.letters.forEach(l => { const o=document.createElement("option"); o.value=l; o.textContent=l; selLetter2.appendChild(o); }); }
-    selLetter2.classList.remove("empty");
-    document.getElementById("sel-floor").classList.remove("empty");
-  }
-  onSelectChange();
-}
-
-function onSelectChange() {
   const floorVal  = document.getElementById('sel-floor').value;
   const selLetter = document.getElementById('sel-letter');
-  const btnCall   = document.getElementById('btn-call');
-  const confirmBox = document.getElementById('confirm-box');
 
-  // Actualizar letras disponibles para ese piso
+  // Limpiar letras anteriores
+  selLetter.innerHTML = '<option value="">—</option>';
+
   if (floorVal && portalData) {
     const floor = portalData.floors.find(f => f.number == floorVal);
-    selLetter.innerHTML = '<option value="">—</option>';
     if (floor) {
       floor.letters.forEach(l => {
         const opt = document.createElement('option');
@@ -686,23 +672,29 @@ function onSelectChange() {
         selLetter.appendChild(opt);
       });
     }
-    selLetter.disabled = false;
     selLetter.classList.remove('empty');
     document.getElementById('sel-floor').classList.remove('empty');
-  } else {
-    selLetter.innerHTML = '<option value="">—</option>';
-    selLetter.disabled = true;
   }
 
-  const letterVal = selLetter.value;
+  updateCallButton();
+}
+
+function onSelectChange() {
+  updateCallButton();
+}
+
+function updateCallButton() {
+  const floorVal  = document.getElementById('sel-floor').value;
+  const letterVal = document.getElementById('sel-letter').value;
+  const btnCall   = document.getElementById('btn-call');
+  const confirmBox = document.getElementById('confirm-box');
   const ready = floorVal && letterVal;
 
   btnCall.disabled = !ready;
 
-  // Caja de confirmación
-  if (ready) {
+  if (ready && portalData) {
     document.getElementById('confirm-dest').textContent =
-      `Piso ${floorVal}º · Puerta ${letterVal}`;
+      'Piso ' + floorVal + 'º · Puerta ' + letterVal;
     document.getElementById('confirm-building-name').textContent =
       portalData.address;
     confirmBox.classList.add('visible');
