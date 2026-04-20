@@ -58,9 +58,8 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS floors (
       id            TEXT PRIMARY KEY,
       portal_id     TEXT NOT NULL REFERENCES portals(id) ON DELETE CASCADE,
-      unit_label    TEXT NOT NULL,
-      resident_name TEXT NOT NULL DEFAULT '',
-      UNIQUE(portal_id, unit_label)
+      unit_label    TEXT,
+      resident_name TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -93,14 +92,19 @@ async function initDB() {
     );
   `);
 
-  // Migración: añadir columnas nuevas si no existen
-  await pool.query(`
-    ALTER TABLE floors ADD COLUMN IF NOT EXISTS unit_label TEXT;
-    ALTER TABLE floors ADD COLUMN IF NOT EXISTS resident_name TEXT NOT NULL DEFAULT '';
-    ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS floor_id TEXT;
-    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_id TEXT;
-    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT NOT NULL DEFAULT '';
-  `).catch(() => {});
+  // Migración: añadir columnas nuevas si no existen (una por una)
+  const migrations = [
+    "ALTER TABLE floors ADD COLUMN IF NOT EXISTS unit_label TEXT",
+    "ALTER TABLE floors ADD COLUMN IF NOT EXISTS resident_name TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS floor_id TEXT",
+    "ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_id TEXT",
+    "ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT NOT NULL DEFAULT ''",
+    "UPDATE floors SET unit_label = number || 'º ' || letter WHERE unit_label IS NULL",
+    "CREATE UNIQUE INDEX IF NOT EXISTS floors_portal_unit ON floors(portal_id, unit_label)"
+  ];
+  for (const sql of migrations) {
+    await pool.query(sql).catch(e => log('Migration skip: ' + e.message));
+  }
 
   log('Base de datos lista');
 }
