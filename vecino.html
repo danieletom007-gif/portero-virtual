@@ -393,39 +393,79 @@
 <!-- ══ PANTALLA 0: INSTALACIÓN OBLIGATORIA ══ -->
 <div id="screen-install">
   <div class="install-card">
-    <div class="install-icon">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round">
-        <path d="M12 18.5L6.5 13M12 18.5L17.5 13M12 18.5V5"/>
-        <rect x="3" y="19" width="18" height="2" rx="1"/>
-      </svg>
+    <!-- Android: botón directo -->
+    <div id="install-android" style="display:none">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:64px;margin-bottom:12px">📲</div>
+        <div class="install-title">Instala el portero</div>
+        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado necesitas instalar esta app.</div>
+      </div>
+      <button class="btn-installed" id="btn-install-native" onclick="doNativeInstall()" style="background:var(--accent);color:white;margin-bottom:12px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Instalar app
+      </button>
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
+        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
+        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+      </div>
+      <div class="already-installed">¿Ya instalada? <a onclick="goToSetup()">Continuar sin instalar</a></div>
     </div>
-    <div class="install-title">Instala la app primero</div>
-    <div class="install-sub">Para recibir llamadas con el móvil bloqueado necesitas instalar esta página como app.</div>
-    <div class="install-why">
-      <strong>⚠ Importante</strong>
-      Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+
+    <!-- Android fallback: si el prompt no está disponible -->
+    <div id="install-android-manual" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:56px;margin-bottom:10px">📲</div>
+        <div class="install-title">Instala el portero</div>
+        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado.</div>
+      </div>
+      <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">⋮</div>
+          <div style="font-size:13px;color:var(--text)">Pulsa los <strong>tres puntos</strong> arriba a la derecha del navegador</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
+          <div style="font-size:13px;color:var(--text)">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div>
+        </div>
+      </div>
+      <button class="btn-installed" onclick="checkInstalled()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Ya la he instalado, continuar
+      </button>
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
+        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
+        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+      </div>
+      <div class="already-installed">¿Problemas? <a onclick="goToSetup()">Continuar sin instalar</a></div>
     </div>
-    <div class="os-tabs">
-      <div class="os-tab active" id="tab-android" onclick="showOS('android')">Android</div>
-      <div class="os-tab" id="tab-ios" onclick="showOS('ios')">iPhone</div>
+
+    <!-- iPhone -->
+    <div id="install-ios" style="display:none">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:56px;margin-bottom:10px">📲</div>
+        <div class="install-title">Instala el portero</div>
+        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado. Solo funciona con <strong>Safari</strong>.</div>
+      </div>
+      <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">⬆️</div>
+          <div style="font-size:13px;color:var(--text)">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha) abajo en Safari</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
+          <div style="font-size:13px;color:var(--text)">Selecciona <strong>"Añadir a pantalla de inicio"</strong> y pulsa <strong>"Añadir"</strong></div>
+        </div>
+      </div>
+      <button class="btn-installed" onclick="checkInstalled()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Ya la he instalado, continuar
+      </button>
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
+        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
+        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+      </div>
+      <div class="already-installed">¿Problemas? <a onclick="goToSetup()">Continuar sin instalar</a></div>
     </div>
-    <div class="install-steps" id="steps-android">
-      <div class="install-step"><div class="step-num">1</div><div class="step-text">Pulsa el menú <strong>⋮</strong> (tres puntos) arriba a la derecha del navegador</div></div>
-      <div class="install-step"><div class="step-num">2</div><div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div></div>
-      <div class="install-step"><div class="step-num">3</div><div class="step-text">Confirma pulsando <strong>"Instalar"</strong></div></div>
-      <div class="install-step"><div class="step-num">4</div><div class="step-text">Abre la app desde el <strong>icono que aparece en tu pantalla de inicio</strong> y vuelve aquí</div></div>
-    </div>
-    <div class="install-steps" id="steps-ios" style="display:none">
-      <div class="install-step"><div class="step-num">1</div><div class="step-text">Asegúrate de usar <strong>Safari</strong> (no Chrome)</div></div>
-      <div class="install-step"><div class="step-num">2</div><div class="step-text">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha) en la barra inferior</div></div>
-      <div class="install-step"><div class="step-num">3</div><div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong></div></div>
-      <div class="install-step"><div class="step-num">4</div><div class="step-text">Pulsa <strong>"Añadir"</strong> y abre la app desde tu pantalla de inicio</div></div>
-    </div>
-    <button class="btn-installed" onclick="checkInstalled()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      Ya la he instalado, continuar
-    </button>
-    <div class="already-installed">¿Ya está instalada? <a onclick="goToSetup()">Saltar este paso</a></div>
   </div>
 </div>
 
@@ -678,6 +718,44 @@ const urlPortal  = urlParams.get('portal') || '';
 const urlContest = urlParams.get('contestar') === 'true';
 
 
+
+// ── Instalación nativa PWA ────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Prompt disponible — mostrar botón directo
+  showInstallSection('android');
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  goToSetup();
+});
+
+async function doNativeInstall() {
+  if (!deferredPrompt) {
+    showInstallSection('android-manual');
+    return;
+  }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') {
+    goToSetup();
+  }
+}
+
+function showInstallSection(section) {
+  ['install-android','install-android-manual','install-ios'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const target = document.getElementById('install-' + section);
+  if (target) target.style.display = 'block';
+}
+
 // ── Detección de app instalada ────────────────────────────
 function isInstalledApp() {
   return window.matchMedia('(display-mode: standalone)').matches ||
@@ -713,12 +791,27 @@ function showAllScreens(id) {
 // ── Inicialización ────────────────────────────────────────
 function initApp() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  if (isIOS) showOS('ios');
 
   if (isInstalledApp()) {
     showAllScreens('screen-setup');
+    return;
+  }
+
+  // Mostrar pantalla de instalación
+  showAllScreens('screen-install');
+
+  if (isIOS) {
+    // iPhone: instrucciones Safari siempre
+    showInstallSection('ios');
   } else {
-    showAllScreens('screen-install');
+    // Android: esperar si viene el prompt nativo (beforeinstallprompt)
+    // Si no llega en 1 segundo, mostrar instrucciones manuales
+    setTimeout(() => {
+      if (!deferredPrompt && document.getElementById('install-android').style.display === 'none'
+          && document.getElementById('install-android-manual').style.display === 'none') {
+        showInstallSection('android-manual');
+      }
+    }, 1000);
   }
 }
 
