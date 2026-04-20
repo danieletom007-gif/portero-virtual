@@ -758,9 +758,12 @@ function showInstallSection(section) {
 
 // ── Detección de app instalada ────────────────────────────
 function isInstalledApp() {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-         window.navigator.standalone === true ||
-         document.referrer.includes('android-app://');
+  const standalone  = window.matchMedia('(display-mode: standalone)').matches;
+  const iosStandalone = window.navigator.standalone === true;
+  const androidApp  = document.referrer.includes('android-app://');
+  const fullscreen  = window.matchMedia('(display-mode: fullscreen)').matches;
+  const minimalUI   = window.matchMedia('(display-mode: minimal-ui)').matches;
+  return standalone || iosStandalone || androidApp || fullscreen || minimalUI;
 }
 
 function showOS(os) {
