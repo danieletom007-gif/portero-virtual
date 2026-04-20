@@ -317,11 +317,16 @@ app.post('/api/portals/:portalId/floors', authMiddleware, async (req, res) => {
     const { unit_label, resident_name } = req.body;
     if (!unit_label) return res.status(400).json({ error: 'Falta el identificador de la vivienda' });
 
+    // Ver columnas actuales de la tabla
+    const cols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='floors'");
+    log('Columnas floors: ' + cols.rows.map(r=>r.column_name).join(', '));
+
     const id = uid();
     await pool.query('INSERT INTO floors (id,portal_id,unit_label,resident_name) VALUES ($1,$2,$3,$4)',
       [id, req.params.portalId, unit_label.trim(), resident_name || '']);
     res.json({ id, unit_label, resident_name: resident_name || '' });
   } catch(e) {
+    log('ERROR crear piso: ' + e.message + ' | code: ' + e.code);
     if (e.code === '23505') return res.status(409).json({ error: 'Esta vivienda ya existe en este portal' });
     res.status(500).json({ error: e.message });
   }
