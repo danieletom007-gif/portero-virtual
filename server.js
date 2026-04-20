@@ -92,15 +92,24 @@ async function initDB() {
     );
   `);
 
-  // Migración: añadir columnas nuevas si no existen (una por una)
+  // Migración: ajustar tabla floors al nuevo esquema
   const migrations = [
+    // Añadir columnas nuevas
     "ALTER TABLE floors ADD COLUMN IF NOT EXISTS unit_label TEXT",
     "ALTER TABLE floors ADD COLUMN IF NOT EXISTS resident_name TEXT NOT NULL DEFAULT ''",
+    // Eliminar restricción única antigua si existe
+    "ALTER TABLE floors DROP CONSTRAINT IF EXISTS floors_portal_id_number_letter_key",
+    "ALTER TABLE floors DROP CONSTRAINT IF EXISTS floors_portal_id_unit_label_key",
+    // Rellenar unit_label con datos existentes
+    "UPDATE floors SET unit_label = COALESCE(unit_label, number || 'º ' || letter) WHERE unit_label IS NULL OR unit_label = ''",
+    // Push subscriptions
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS floor_id TEXT",
+    "ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_portal_id_floor_number_floor_letter_key",
+    // Call log
     "ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_id TEXT",
     "ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT NOT NULL DEFAULT ''",
-    "UPDATE floors SET unit_label = number || 'º ' || letter WHERE unit_label IS NULL",
-    "CREATE UNIQUE INDEX IF NOT EXISTS floors_portal_unit ON floors(portal_id, unit_label)"
+    // Notices table
+    "CREATE TABLE IF NOT EXISTS notices (id TEXT PRIMARY KEY, portal_id TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'general', title TEXT NOT NULL, body TEXT NOT NULL, sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), recipients_count INTEGER NOT NULL DEFAULT 0)"
   ];
   for (const sql of migrations) {
     await pool.query(sql).catch(e => log('Migration skip: ' + e.message));
