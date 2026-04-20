@@ -97,13 +97,18 @@ async function initDB() {
     // Añadir columnas nuevas
     "ALTER TABLE floors ADD COLUMN IF NOT EXISTS unit_label TEXT",
     "ALTER TABLE floors ADD COLUMN IF NOT EXISTS resident_name TEXT NOT NULL DEFAULT ''",
+    // Quitar NOT NULL de columnas antiguas para compatibilidad
+    "ALTER TABLE floors ALTER COLUMN number DROP NOT NULL",
+    "ALTER TABLE floors ALTER COLUMN letter DROP NOT NULL",
     // Eliminar restricción única antigua si existe
     "ALTER TABLE floors DROP CONSTRAINT IF EXISTS floors_portal_id_number_letter_key",
     "ALTER TABLE floors DROP CONSTRAINT IF EXISTS floors_portal_id_unit_label_key",
     // Rellenar unit_label con datos existentes
-    "UPDATE floors SET unit_label = COALESCE(unit_label, number || 'º ' || letter) WHERE unit_label IS NULL OR unit_label = ''",
+    "UPDATE floors SET unit_label = COALESCE(NULLIF(unit_label,''), number || 'º ' || letter) WHERE unit_label IS NULL OR unit_label = ''",
     // Push subscriptions
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS floor_id TEXT",
+    "ALTER TABLE push_subscriptions ALTER COLUMN floor_number DROP NOT NULL",
+    "ALTER TABLE push_subscriptions ALTER COLUMN floor_letter DROP NOT NULL",
     "ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_portal_id_floor_number_floor_letter_key",
     // Call log
     "ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_id TEXT",
