@@ -801,17 +801,11 @@ function initApp() {
   showAllScreens('screen-install');
 
   if (isIOS) {
-    // iPhone: instrucciones Safari siempre
     showInstallSection('ios');
   } else {
-    // Android: esperar si viene el prompt nativo (beforeinstallprompt)
-    // Si no llega en 1 segundo, mostrar instrucciones manuales
-    setTimeout(() => {
-      if (!deferredPrompt && document.getElementById('install-android').style.display === 'none'
-          && document.getElementById('install-android-manual').style.display === 'none') {
-        showInstallSection('android-manual');
-      }
-    }, 1000);
+    // Mostrar instrucciones manuales inmediatamente
+    // Si el prompt nativo llega después, las reemplazará automáticamente
+    showInstallSection('android-manual');
   }
 }
 
