@@ -1,9 +1,7 @@
 /**
  * SERVIDOR SAAS — Portero Virtual
+ * Fase 2: Panel de administración completo
  * Base de datos: PostgreSQL (datos permanentes)
- *
- * Instalación:
- *   npm install express ws web-push pg bcryptjs jsonwebtoken cors dotenv
  */
 
 require('dotenv').config();
@@ -18,9 +16,8 @@ const cors      = require('cors');
 const path      = require('path');
 const crypto    = require('crypto');
 
-// ── Configuración ─────────────────────────────────────────
-const PORT        = process.env.PORT         || 3000;
-const JWT_SECRET  = process.env.JWT_SECRET   || 'cambia_esto';
+const PORT        = process.env.PORT              || 3000;
+const JWT_SECRET  = process.env.JWT_SECRET        || 'cambia_esto';
 const VAPID_PUB   = process.env.VAPID_PUBLIC_KEY  || '';
 const VAPID_PRIV  = process.env.VAPID_PRIVATE_KEY || '';
 const VAPID_EMAIL = process.env.VAPID_EMAIL       || 'mailto:admin@example.com';
@@ -36,7 +33,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Crear tablas si no existen
 async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clients (
@@ -62,32 +58,50 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS floors (
       id            TEXT PRIMARY KEY,
       portal_id     TEXT NOT NULL REFERENCES portals(id) ON DELETE CASCADE,
-      number        TEXT NOT NULL,
-      letter        TEXT NOT NULL,
+      unit_label    TEXT NOT NULL,
       resident_name TEXT NOT NULL DEFAULT '',
-      UNIQUE(portal_id, number, letter)
+      UNIQUE(portal_id, unit_label)
     );
 
     CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id           TEXT PRIMARY KEY,
-      portal_id    TEXT NOT NULL REFERENCES portals(id) ON DELETE CASCADE,
-      floor_number TEXT NOT NULL,
-      floor_letter TEXT NOT NULL,
+      id          TEXT PRIMARY KEY,
+      portal_id   TEXT NOT NULL REFERENCES portals(id) ON DELETE CASCADE,
+      floor_id    TEXT NOT NULL REFERENCES floors(id) ON DELETE CASCADE,
       subscription TEXT NOT NULL,
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(portal_id, floor_number, floor_letter)
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(floor_id)
     );
 
     CREATE TABLE IF NOT EXISTS call_log (
       id           TEXT PRIMARY KEY,
       portal_id    TEXT NOT NULL,
-      floor_number TEXT NOT NULL,
-      floor_letter TEXT NOT NULL,
+      floor_id     TEXT,
+      floor_label  TEXT NOT NULL DEFAULT '',
       started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       answered     BOOLEAN NOT NULL DEFAULT false,
       duration_sec INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS notices (
+      id               TEXT PRIMARY KEY,
+      portal_id        TEXT NOT NULL REFERENCES portals(id) ON DELETE CASCADE,
+      type             TEXT NOT NULL DEFAULT 'general',
+      title            TEXT NOT NULL,
+      body             TEXT NOT NULL,
+      sent_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      recipients_count INTEGER NOT NULL DEFAULT 0
+    );
   `);
+
+  // Migración: añadir columnas nuevas si no existen
+  await pool.query(`
+    ALTER TABLE floors ADD COLUMN IF NOT EXISTS unit_label TEXT;
+    ALTER TABLE floors ADD COLUMN IF NOT EXISTS resident_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS floor_id TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_id TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT NOT NULL DEFAULT '';
+  `).catch(() => {});
+
   log('Base de datos lista');
 }
 
@@ -107,216 +121,367 @@ function authMiddleware(req, res, next) {
   }
 }
 
+async function checkPortalOwner(portalId, clientId) {
+  const r = await pool.query('SELECT id FROM portals WHERE id=$1 AND client_id=$2', [portalId, clientId]);
+  return r.rows.length > 0;
+}
+
 // ── Express ───────────────────────────────────────────────
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// ── API: Autenticación ────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) return res.status(400).json({ error: 'Faltan campos' });
-  if (password.length < 8) return res.status(400).json({ error: 'Contraseña demasiado corta' });
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'Faltan campos' });
+    if (password.length < 8) return res.status(400).json({ error: 'Contraseña demasiado corta' });
 
-  const existing = await pool.query('SELECT id FROM clients WHERE email = $1', [email]);
-  if (existing.rows.length) return res.status(409).json({ error: 'Email ya registrado' });
+    const existing = await pool.query('SELECT id FROM clients WHERE email=$1', [email]);
+    if (existing.rows.length) return res.status(409).json({ error: 'Email ya registrado' });
 
-  const id   = uid();
-  const hash = await bcrypt.hash(password, 10);
-  await pool.query('INSERT INTO clients (id, name, email, password) VALUES ($1,$2,$3,$4)', [id, name, email, hash]);
+    const id   = uid();
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('INSERT INTO clients (id,name,email,password) VALUES ($1,$2,$3,$4)', [id, name, email, hash]);
 
-  const token = jwt.sign({ id, email, name }, JWT_SECRET, { expiresIn: '30d' });
-  log(`Nuevo cliente: ${email}`);
-  res.json({ token, client: { id, name, email } });
+    const token = jwt.sign({ id, email, name }, JWT_SECRET, { expiresIn: '30d' });
+    log(`Nuevo cliente: ${email}`);
+    res.json({ token, client: { id, name, email } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Faltan campos' });
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Faltan campos' });
 
-  const result = await pool.query('SELECT * FROM clients WHERE email = $1', [email]);
-  const client = result.rows[0];
-  if (!client) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+    const result = await pool.query('SELECT * FROM clients WHERE email=$1', [email]);
+    const client = result.rows[0];
+    if (!client) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
 
-  const ok = await bcrypt.compare(password, client.password);
-  if (!ok) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
-  if (!client.active) return res.status(403).json({ error: 'Cuenta suspendida' });
+    const ok = await bcrypt.compare(password, client.password);
+    if (!ok) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+    if (!client.active) return res.status(403).json({ error: 'Cuenta suspendida' });
 
-  const token = jwt.sign({ id: client.id, email: client.email, name: client.name }, JWT_SECRET, { expiresIn: '30d' });
-  log(`Login: ${email}`);
-  res.json({ token, client: { id: client.id, name: client.name, email: client.email, plan: client.plan } });
+    const token = jwt.sign({ id: client.id, email: client.email, name: client.name }, JWT_SECRET, { expiresIn: '30d' });
+    log(`Login: ${email}`);
+    res.json({ token, client: { id: client.id, name: client.name, email: client.email, plan: client.plan } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Portales ─────────────────────────────────────────
+app.put('/api/auth/profile', authMiddleware, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Falta el nombre' });
+    await pool.query('UPDATE clients SET name=$1 WHERE id=$2', [name, req.client.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Faltan campos' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'La nueva contraseña es demasiado corta' });
+
+    const result = await pool.query('SELECT password FROM clients WHERE id=$1', [req.client.id]);
+    const ok = await bcrypt.compare(currentPassword, result.rows[0].password);
+    if (!ok) return res.status(401).json({ error: 'La contraseña actual no es correcta' });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE clients SET password=$1 WHERE id=$2', [hash, req.client.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════
+// PORTALES
+// ══════════════════════════════════════════════════════════
 
 app.get('/api/portals', authMiddleware, async (req, res) => {
-  const result = await pool.query(`
-    SELECT p.*, COUNT(f.id) as floor_count
-    FROM portals p
-    LEFT JOIN floors f ON f.portal_id = p.id
-    WHERE p.client_id = $1
-    GROUP BY p.id
-    ORDER BY p.created_at DESC
-  `, [req.client.id]);
-  res.json(result.rows);
+  try {
+    const result = await pool.query(`
+      SELECT p.*,
+        COUNT(DISTINCT f.id) as floor_count,
+        COUNT(DISTINCT ps.id) as active_neighbors
+      FROM portals p
+      LEFT JOIN floors f ON f.portal_id = p.id
+      LEFT JOIN push_subscriptions ps ON ps.portal_id = p.id
+      WHERE p.client_id = $1
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `, [req.client.id]);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/portals', authMiddleware, async (req, res) => {
-  const { name, address, city } = req.body;
-  if (!name || !address) return res.status(400).json({ error: 'Faltan nombre y dirección' });
-
-  const id = uid();
-  await pool.query('INSERT INTO portals (id, client_id, name, address, city) VALUES ($1,$2,$3,$4,$5)',
-    [id, req.client.id, name, address, city || '']);
-  log(`Portal creado: ${name}`);
-  res.json({ id, name, address, city });
+  try {
+    const { name, address, city } = req.body;
+    if (!name || !address) return res.status(400).json({ error: 'Faltan nombre y dirección' });
+    const id = uid();
+    await pool.query('INSERT INTO portals (id,client_id,name,address,city) VALUES ($1,$2,$3,$4,$5)',
+      [id, req.client.id, name, address, city || '']);
+    log(`Portal creado: ${name}`);
+    res.json({ id, name, address, city: city || '' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/portals/:id', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT * FROM portals WHERE id = $1 AND client_id = $2', [req.params.id, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
-
-  const { name, address, city } = req.body;
-  const p = portal.rows[0];
-  await pool.query('UPDATE portals SET name=$1, address=$2, city=$3 WHERE id=$4',
-    [name || p.name, address || p.address, city ?? p.city, req.params.id]);
-  res.json({ ok: true });
+  try {
+    if (!await checkPortalOwner(req.params.id, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+    const { name, address, city } = req.body;
+    await pool.query('UPDATE portals SET name=COALESCE($1,name), address=COALESCE($2,address), city=COALESCE($3,city) WHERE id=$4',
+      [name, address, city, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/portals/:id', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT id FROM portals WHERE id = $1 AND client_id = $2', [req.params.id, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
-  await pool.query('DELETE FROM portals WHERE id = $1', [req.params.id]);
-  res.json({ ok: true });
+  try {
+    if (!await checkPortalOwner(req.params.id, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+    await pool.query('DELETE FROM portals WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Datos públicos del portal (para el QR) ───────────
-
+// ── Datos públicos del portal (para el QR del visitante) ──
 app.get('/api/portal/:portalId/public', async (req, res) => {
-  const portal = await pool.query('SELECT * FROM portals WHERE id = $1 AND active = true', [req.params.portalId]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
+  try {
+    const portal = await pool.query('SELECT * FROM portals WHERE id=$1 AND active=true', [req.params.portalId]);
+    if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
 
-  const rows = await pool.query(`
-    SELECT number, letter FROM floors
-    WHERE portal_id = $1
-    ORDER BY CAST(number AS INTEGER), letter
-  `, [req.params.portalId]);
+    const floors = await pool.query(`
+      SELECT id, unit_label FROM floors
+      WHERE portal_id=$1
+      ORDER BY unit_label
+    `, [req.params.portalId]);
 
-  const floorsMap = {};
-  rows.rows.forEach(({ number, letter }) => {
-    if (!floorsMap[number]) floorsMap[number] = { number, letters: [] };
-    floorsMap[number].letters.push(letter);
-  });
-
-  const p = portal.rows[0];
-  res.json({
-    id:      p.id,
-    name:    p.name,
-    address: p.address,
-    city:    p.city,
-    floors:  Object.values(floorsMap)
-  });
+    const p = portal.rows[0];
+    res.json({
+      id:      p.id,
+      name:    p.name,
+      address: p.address,
+      city:    p.city,
+      floors:  floors.rows.map(f => ({ id: f.id, label: f.unit_label }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Pisos ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// VIVIENDAS (unit_label libre)
+// ══════════════════════════════════════════════════════════
 
 app.get('/api/portals/:portalId/floors', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT id FROM portals WHERE id = $1 AND client_id = $2', [req.params.portalId, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
 
-  const result = await pool.query(`
-    SELECT f.*,
-      CASE WHEN ps.id IS NOT NULL THEN true ELSE false END as has_push
-    FROM floors f
-    LEFT JOIN push_subscriptions ps ON ps.portal_id = f.portal_id
-      AND ps.floor_number = f.number AND ps.floor_letter = f.letter
-    WHERE f.portal_id = $1
-    ORDER BY CAST(f.number AS INTEGER), f.letter
-  `, [req.params.portalId]);
-  res.json(result.rows);
+    const result = await pool.query(`
+      SELECT f.*,
+        CASE WHEN ps.id IS NOT NULL THEN true ELSE false END as has_push
+      FROM floors f
+      LEFT JOIN push_subscriptions ps ON ps.floor_id = f.id
+      WHERE f.portal_id=$1
+      ORDER BY f.unit_label
+    `, [req.params.portalId]);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/portals/:portalId/floors', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT id FROM portals WHERE id = $1 AND client_id = $2', [req.params.portalId, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
-
-  const { number, letter, resident_name } = req.body;
-  if (!number || !letter) return res.status(400).json({ error: 'Faltan piso y letra' });
-
   try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+
+    const { unit_label, resident_name } = req.body;
+    if (!unit_label) return res.status(400).json({ error: 'Falta el identificador de la vivienda' });
+
     const id = uid();
-    await pool.query('INSERT INTO floors (id, portal_id, number, letter, resident_name) VALUES ($1,$2,$3,$4,$5)',
-      [id, req.params.portalId, number, letter, resident_name || '']);
-    res.json({ id, number, letter, resident_name: resident_name || '' });
-  } catch {
-    res.status(409).json({ error: 'Este piso y letra ya existe en este portal' });
+    await pool.query('INSERT INTO floors (id,portal_id,unit_label,resident_name) VALUES ($1,$2,$3,$4)',
+      [id, req.params.portalId, unit_label.trim(), resident_name || '']);
+    res.json({ id, unit_label, resident_name: resident_name || '' });
+  } catch(e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Esta vivienda ya existe en este portal' });
+    res.status(500).json({ error: e.message });
   }
 });
 
-app.delete('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT id FROM portals WHERE id = $1 AND client_id = $2', [req.params.portalId, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
-  await pool.query('DELETE FROM floors WHERE id = $1 AND portal_id = $2', [req.params.floorId, req.params.portalId]);
-  res.json({ ok: true });
+app.put('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+    const { unit_label, resident_name } = req.body;
+    await pool.query('UPDATE floors SET unit_label=COALESCE($1,unit_label), resident_name=COALESCE($2,resident_name) WHERE id=$3 AND portal_id=$4',
+      [unit_label, resident_name, req.params.floorId, req.params.portalId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Push ─────────────────────────────────────────────
+app.delete('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+    await pool.query('DELETE FROM floors WHERE id=$1 AND portal_id=$2', [req.params.floorId, req.params.portalId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Resetear vecino de una vivienda (nuevo vecino)
+app.post('/api/portals/:portalId/floors/:floorId/reset', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+    await pool.query('DELETE FROM push_subscriptions WHERE floor_id=$1', [req.params.floorId]);
+    log(`Vivienda reseteada: ${req.params.floorId}`);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════
+// PUSH SUBSCRIPTIONS
+// ══════════════════════════════════════════════════════════
 
 app.post('/api/subscribe', async (req, res) => {
-  const { portalId, floorNumber, floorLetter, subscription } = req.body;
-  if (!portalId || !floorNumber || !floorLetter || !subscription) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const { portalId, floorId, subscription } = req.body;
+    if (!portalId || !floorId || !subscription) return res.status(400).json({ error: 'Faltan datos' });
 
-  const id = uid();
-  await pool.query(`
-    INSERT INTO push_subscriptions (id, portal_id, floor_number, floor_letter, subscription, updated_at)
-    VALUES ($1,$2,$3,$4,$5,NOW())
-    ON CONFLICT (portal_id, floor_number, floor_letter)
-    DO UPDATE SET subscription = EXCLUDED.subscription, updated_at = NOW()
-  `, [id, portalId, floorNumber, floorLetter, JSON.stringify(subscription)]);
+    const id = uid();
+    await pool.query(`
+      INSERT INTO push_subscriptions (id,portal_id,floor_id,subscription,updated_at)
+      VALUES ($1,$2,$3,$4,NOW())
+      ON CONFLICT (floor_id)
+      DO UPDATE SET subscription=EXCLUDED.subscription, updated_at=NOW()
+    `, [id, portalId, floorId, JSON.stringify(subscription)]);
 
-  log(`Push registrado: portal=${portalId} piso=${floorNumber}${floorLetter}`);
-  res.json({ ok: true });
+    log(`Push registrado: portal=${portalId} floor=${floorId}`);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/vapid-public-key', (req, res) => {
   res.json({ key: VAPID_PUB });
 });
 
-// ── API: Estadísticas ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// AVISOS A VECINOS
+// ══════════════════════════════════════════════════════════
 
-app.get('/api/portals/:portalId/stats', authMiddleware, async (req, res) => {
-  const portal = await pool.query('SELECT id FROM portals WHERE id = $1 AND client_id = $2', [req.params.portalId, req.client.id]);
-  if (!portal.rows.length) return res.status(404).json({ error: 'Portal no encontrado' });
+app.post('/api/portals/:portalId/notify', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
 
-  const stats = await pool.query(`
-    SELECT
-      COUNT(*) as total_calls,
-      SUM(CASE WHEN answered THEN 1 ELSE 0 END) as answered_calls,
-      ROUND(AVG(CASE WHEN answered THEN duration_sec END)) as avg_duration_sec
-    FROM call_log WHERE portal_id = $1
-  `, [req.params.portalId]);
+    const { type, title, body, recipients } = req.body;
+    if (!title || !body) return res.status(400).json({ error: 'Faltan título y mensaje' });
 
-  const recent = await pool.query(`
-    SELECT * FROM call_log WHERE portal_id = $1
-    ORDER BY started_at DESC LIMIT 20
-  `, [req.params.portalId]);
+    // Obtener suscripciones según destinatarios
+    let subsQuery = `
+      SELECT ps.subscription, f.unit_label
+      FROM push_subscriptions ps
+      JOIN floors f ON f.id = ps.floor_id
+      WHERE ps.portal_id=$1
+    `;
+    const subs = await pool.query(subsQuery, [req.params.portalId]);
 
-  res.json({ ...stats.rows[0], recent: recent.rows });
+    const noticeIcons = {
+      urgent: '🚨', maintenance: '🔧', meeting: '📅',
+      general: '📢', community: '🎉', water: '💧'
+    };
+    const icon = noticeIcons[type] || '📢';
+
+    let sent = 0;
+    for (const row of subs.rows) {
+      try {
+        await webPush.sendNotification(JSON.parse(row.subscription), JSON.stringify({
+          title: `${icon} ${title}`,
+          body,
+          type: 'notice'
+        }));
+        sent++;
+      } catch(err) {
+        // Si la suscripción expiró, eliminarla
+        if (err.statusCode === 410) {
+          await pool.query('DELETE FROM push_subscriptions WHERE subscription=$1', [row.subscription]);
+        }
+      }
+    }
+
+    // Guardar en historial
+    const noticeId = uid();
+    await pool.query('INSERT INTO notices (id,portal_id,type,title,body,recipients_count) VALUES ($1,$2,$3,$4,$5,$6)',
+      [noticeId, req.params.portalId, type || 'general', title, body, sent]);
+
+    log(`Aviso enviado: "${title}" → ${sent} vecinos en portal ${req.params.portalId}`);
+    res.json({ ok: true, sent });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Servidor HTTP ─────────────────────────────────────────
+app.get('/api/portals/:portalId/notices', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+
+    const result = await pool.query(`
+      SELECT * FROM notices WHERE portal_id=$1
+      ORDER BY sent_at DESC LIMIT 50
+    `, [req.params.portalId]);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════
+// ESTADÍSTICAS
+// ══════════════════════════════════════════════════════════
+
+app.get('/api/portals/:portalId/stats', authMiddleware, async (req, res) => {
+  try {
+    if (!await checkPortalOwner(req.params.portalId, req.client.id))
+      return res.status(404).json({ error: 'Portal no encontrado' });
+
+    const stats = await pool.query(`
+      SELECT
+        COUNT(*) as total_calls,
+        SUM(CASE WHEN answered THEN 1 ELSE 0 END) as answered_calls,
+        ROUND(AVG(CASE WHEN answered AND duration_sec > 0 THEN duration_sec END)) as avg_duration_sec
+      FROM call_log WHERE portal_id=$1
+        AND started_at > NOW() - INTERVAL '30 days'
+    `, [req.params.portalId]);
+
+    const recent = await pool.query(`
+      SELECT * FROM call_log WHERE portal_id=$1
+      ORDER BY started_at DESC LIMIT 20
+    `, [req.params.portalId]);
+
+    res.json({ ...stats.rows[0], recent: recent.rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════
+// HTTP SERVER
+// ══════════════════════════════════════════════════════════
+
 const server = app.listen(PORT, async () => {
   await initDB();
   log(`Servidor listo en puerto ${PORT}`);
 });
 
-// ── WebSocket ─────────────────────────────────────────────
-const wss = new WebSocket.Server({ server });
+// ══════════════════════════════════════════════════════════
+// WEBSOCKET — señalización WebRTC
+// ══════════════════════════════════════════════════════════
+
+const wss   = new WebSocket.Server({ server });
 const rooms = new Map();
 
-function getOrCreateRoom(roomId) {
+function getRoom(roomId) {
   if (!rooms.has(roomId)) rooms.set(roomId, { visitor: null, neighbor: null, callLogId: null });
   return rooms.get(roomId);
 }
@@ -333,28 +498,27 @@ wss.on('connection', (ws) => {
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
 
-    const { type, room: roomId, portalId: pid } = msg;
+    const { type, room: roomId } = msg;
 
+    // ── Join ──────────────────────────────────────────────
     if (type === 'join') {
-      const role = msg.role;
+      const { role, portalId, floorId, floorLabel } = msg;
       if (!roomId || !role) return;
 
-      const room = getOrCreateRoom(roomId);
+      const room = getRoom(roomId);
       ws._room = roomId;
       ws._role = role;
       room[role] = ws;
       log(`${role} → sala ${roomId}`);
 
       if (role === 'visitor') {
-        const parts       = roomId.split('-');
-        const portalId_r  = parts[0];
-        const floorNum    = parts[1];
-        const floorLetter = parts[2];
-
+        // Registrar llamada
         const callLogId = uid();
         room.callLogId  = callLogId;
-        await pool.query('INSERT INTO call_log (id, portal_id, floor_number, floor_letter) VALUES ($1,$2,$3,$4)',
-          [callLogId, portalId_r, floorNum, floorLetter]);
+        await pool.query(`
+          INSERT INTO call_log (id,portal_id,floor_id,floor_label)
+          VALUES ($1,$2,$3,$4)
+        `, [callLogId, portalId || roomId.split('-')[0], floorId || null, floorLabel || roomId]);
 
         const neighborOnline = room.neighbor && room.neighbor.readyState === WebSocket.OPEN;
 
@@ -363,26 +527,27 @@ wss.on('connection', (ws) => {
           safeSend(ws, { type: 'notification-sent' });
           log(`Vecino online → sala ${roomId}`);
         } else {
-          const sub = await pool.query(`
-            SELECT subscription FROM push_subscriptions
-            WHERE portal_id = $1 AND floor_number = $2 AND floor_letter = $3
-          `, [portalId_r, floorNum, floorLetter]);
+          // Enviar push notification
+          let sub = null;
+          if (floorId) {
+            const r = await pool.query('SELECT subscription FROM push_subscriptions WHERE floor_id=$1', [floorId]);
+            if (r.rows.length) sub = r.rows[0].subscription;
+          }
 
-          if (sub.rows.length && VAPID_PUB) {
+          if (sub && VAPID_PUB) {
             try {
-              await webPush.sendNotification(JSON.parse(sub.rows[0].subscription), JSON.stringify({
+              await webPush.sendNotification(JSON.parse(sub), JSON.stringify({
                 title: '🔔 Alguien llama al portal',
                 body:  'Hay una visita esperando. Pulsa para contestar.',
-                url:   `/vecino.html?portal=${portalId_r}&contestar=true`,
+                url:   `/vecino.html?portal=${portalId}&floor=${floorId}&contestar=true`,
                 room:  roomId
               }));
               safeSend(ws, { type: 'notification-sent' });
               log(`Push enviado → sala ${roomId}`);
-            } catch (err) {
+            } catch(err) {
               log(`Error push: ${err.message}`);
               if (err.statusCode === 410) {
-                await pool.query('DELETE FROM push_subscriptions WHERE portal_id=$1 AND floor_number=$2 AND floor_letter=$3',
-                  [portalId_r, floorNum, floorLetter]);
+                await pool.query('DELETE FROM push_subscriptions WHERE floor_id=$1', [floorId]);
               }
               safeSend(ws, { type: 'busy' });
             }
@@ -393,6 +558,7 @@ wss.on('connection', (ws) => {
       }
     }
 
+    // ── Señalización WebRTC ───────────────────────────────
     if (type === 'neighbor-ready') {
       const room = rooms.get(roomId);
       if (!room) return;
@@ -417,6 +583,14 @@ wss.on('connection', (ws) => {
       if (!room) return;
       const target = ws._role === 'visitor' ? room.neighbor : room.visitor;
       safeSend(target, { type: 'ice', candidate: msg.candidate });
+    }
+
+
+    if (type === 'chat') {
+      const room = rooms.get(roomId);
+      if (!room) return;
+      const target = ws._role === 'visitor' ? room.neighbor : room.visitor;
+      safeSend(target, { type: 'chat', text: msg.text, from: msg.from });
     }
 
     if (type === 'busy') {
@@ -450,6 +624,7 @@ wss.on('connection', (ws) => {
   ws.on('error', err => console.error('WS error:', err.message));
 });
 
+// Ping para mantener conexiones vivas
 setInterval(() => {
   wss.clients.forEach(ws => {
     if (ws.readyState === WebSocket.OPEN) ws.ping();
