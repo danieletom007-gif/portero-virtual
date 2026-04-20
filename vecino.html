@@ -33,7 +33,7 @@
 
   /* ── Setup ── */
   #screen-setup {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
     flex: 1; padding: 32px 24px; position: relative; z-index: 1;
   }
 
@@ -214,12 +214,220 @@
   }
   .video-placeholder p { font-size: 14px; color: var(--muted); }
 
+
+  /* ── Horario de disponibilidad ── */
+  .schedule-panel {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 16px 18px; margin-top: 20px; width: 100%; max-width: 320px;
+  }
+  .schedule-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .schedule-title {
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .schedule-toggle {
+    position: relative; width: 36px; height: 20px;
+    background: var(--surface2); border-radius: 10px;
+    border: 1px solid var(--border2); cursor: pointer; transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .schedule-toggle.on { background: var(--accent); border-color: var(--accent); }
+  .schedule-toggle-knob {
+    position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: white; transition: transform 0.2s;
+  }
+  .schedule-toggle.on .schedule-toggle-knob { transform: translateX(16px); }
+  .schedule-times {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-top: 4px;
+  }
+  .schedule-time-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .schedule-time-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .schedule-time-input {
+    padding: 10px 12px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 10px;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500;
+    text-align: center; cursor: pointer; width: 100%;
+    -webkit-appearance: none;
+  }
+  .schedule-time-input:focus { outline: none; border-color: var(--accent); }
+  .schedule-status {
+    margin-top: 12px; font-size: 12px; text-align: center;
+    padding: 8px; border-radius: 8px;
+  }
+  .schedule-status.active-hours {
+    background: var(--green-dim); color: var(--green);
+  }
+  .schedule-status.quiet-hours {
+    background: rgba(99,102,241,0.1); color: var(--accent);
+  }
+
+  /* ── Chat overlay (durante la llamada) ── */
+  .chat-overlay {
+    position: fixed; bottom: 140px; left: 0; right: 0;
+    padding: 0 16px; z-index: 20;
+    transition: all 0.3s;
+  }
+  .chat-bubble {
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; overflow: hidden;
+  }
+  .chat-toggle-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; cursor: pointer;
+  }
+  .chat-toggle-label {
+    font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8);
+    display: flex; align-items: center; gap: 8px;
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .chat-new-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #22c55e; display: none; animation: pulse-dot 1.5s infinite;
+  }
+  .chat-collapse-icon { color: rgba(255,255,255,0.5); font-size: 16px; transition: transform 0.2s; }
+  .chat-bubble.open .chat-collapse-icon { transform: rotate(180deg); }
+  .chat-body { display: none; }
+  .chat-bubble.open .chat-body { display: block; }
+  .chat-quickreplies-overlay {
+    padding: 6px 12px 8px; display: flex; flex-wrap: wrap; gap: 5px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .chat-quick-overlay {
+    padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.85); cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .chat-quick-overlay:active { background: rgba(99,102,241,0.5); border-color: rgba(99,102,241,0.8); }
+  .chat-messages-overlay {
+    max-height: 130px; overflow-y: auto; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    scroll-behavior: smooth;
+  }
+  .chat-msg-overlay {
+    max-width: 85%; padding: 6px 10px; border-radius: 10px;
+    font-size: 12px; line-height: 1.4; word-break: break-word;
+  }
+  .chat-msg-overlay.sent {
+    background: rgba(99,102,241,0.7); color: white;
+    align-self: flex-end; border-bottom-right-radius: 3px;
+  }
+  .chat-msg-overlay.received {
+    background: rgba(255,255,255,0.15); color: white;
+    align-self: flex-start; border-bottom-left-radius: 3px;
+  }
+  .chat-msg-label-overlay { font-size: 10px; opacity: 0.6; margin-bottom: 2px; }
+  .chat-empty-overlay { text-align:center; color:rgba(255,255,255,0.35); font-size:12px; padding:12px 0; }
+  .chat-input-row-overlay {
+    display: flex; gap: 6px; padding: 8px 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .chat-input-overlay {
+    flex: 1; padding: 7px 12px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; color: white;
+  }
+  .chat-input-overlay::placeholder { color: rgba(255,255,255,0.4); }
+  .chat-input-overlay:focus { outline: none; border-color: rgba(99,102,241,0.6); background: rgba(255,255,255,0.15); }
+  .chat-send-overlay {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: rgba(99,102,241,0.8); color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .chat-send-overlay:active { background: rgba(99,102,241,1); transform: scale(0.93); }
   audio { display: none; }
+
+  /* ── Pantalla instalación obligatoria ── */
+  #screen-install {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; padding: 28px 20px;
+  }
+  .install-card {
+    width: 100%; max-width: 360px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 24px; padding: 32px 28px;
+  }
+  .install-icon {
+    width: 64px; height: 64px;
+    background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 18px; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .install-title { font-size: 22px; font-weight: 600; text-align: center; margin-bottom: 8px; }
+  .install-sub { font-size: 14px; color: var(--muted); text-align: center; margin-bottom: 24px; line-height: 1.5; }
+  .install-why {
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 20px;
+    font-size: 13px; color: #fbbf24; line-height: 1.5;
+  }
+  .install-why strong { display: block; margin-bottom: 3px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; }
+  .os-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 18px; border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; }
+  .os-tab { padding: 10px; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); background: var(--surface2); transition: all 0.2s; }
+  .os-tab.active { background: var(--accent); color: white; }
+  .install-steps { margin-bottom: 22px; }
+  .install-step { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .install-step:last-child { border-bottom: none; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: white; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .step-text strong { color: var(--text); }
+  .btn-installed { width: 100%; padding: 15px; background: var(--green); color: #000; border: none; border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-installed:active { transform: scale(0.98); }
+  .already-installed { text-align: center; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .already-installed a { color: var(--accent); cursor: pointer; }
 </style>
 </head>
 <body>
 
 <audio id="visitor-audio" autoplay playsinline></audio>
+
+
+<!-- ══ PANTALLA 0: INSTALACIÓN OBLIGATORIA ══ -->
+<div id="screen-install">
+  <div class="install-card">
+    <div class="install-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round">
+        <path d="M12 18.5L6.5 13M12 18.5L17.5 13M12 18.5V5"/>
+        <rect x="3" y="19" width="18" height="2" rx="1"/>
+      </svg>
+    </div>
+    <div class="install-title">Instala la app primero</div>
+    <div class="install-sub">Para recibir llamadas con el móvil bloqueado necesitas instalar esta página como app.</div>
+    <div class="install-why">
+      <strong>⚠ Importante</strong>
+      Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+    </div>
+    <div class="os-tabs">
+      <div class="os-tab active" id="tab-android" onclick="showOS('android')">Android</div>
+      <div class="os-tab" id="tab-ios" onclick="showOS('ios')">iPhone</div>
+    </div>
+    <div class="install-steps" id="steps-android">
+      <div class="install-step"><div class="step-num">1</div><div class="step-text">Pulsa el menú <strong>⋮</strong> (tres puntos) arriba a la derecha del navegador</div></div>
+      <div class="install-step"><div class="step-num">2</div><div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div></div>
+      <div class="install-step"><div class="step-num">3</div><div class="step-text">Confirma pulsando <strong>"Instalar"</strong></div></div>
+      <div class="install-step"><div class="step-num">4</div><div class="step-text">Abre la app desde el <strong>icono que aparece en tu pantalla de inicio</strong> y vuelve aquí</div></div>
+    </div>
+    <div class="install-steps" id="steps-ios" style="display:none">
+      <div class="install-step"><div class="step-num">1</div><div class="step-text">Asegúrate de usar <strong>Safari</strong> (no Chrome)</div></div>
+      <div class="install-step"><div class="step-num">2</div><div class="step-text">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha) en la barra inferior</div></div>
+      <div class="install-step"><div class="step-num">3</div><div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong></div></div>
+      <div class="install-step"><div class="step-num">4</div><div class="step-text">Pulsa <strong>"Añadir"</strong> y abre la app desde tu pantalla de inicio</div></div>
+    </div>
+    <button class="btn-installed" onclick="checkInstalled()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      Ya la he instalado, continuar
+    </button>
+    <div class="already-installed">¿Ya está instalada? <a onclick="goToSetup()">Saltar este paso</a></div>
+  </div>
+</div>
 
 <!-- ══ SETUP ══ -->
 <div id="screen-setup">
@@ -309,6 +517,35 @@
   </div>
 
   <button class="btn-change" onclick="goSetup()">Cambiar piso</button>
+
+  <div class="schedule-panel">
+    <div class="schedule-header">
+      <div class="schedule-title">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        Horario silencioso
+      </div>
+      <div class="schedule-toggle" id="schedule-toggle" onclick="toggleSchedule()">
+        <div class="schedule-toggle-knob"></div>
+      </div>
+    </div>
+
+    <div id="schedule-config" style="display:none">
+      <div class="schedule-times">
+        <div class="schedule-time-wrap">
+          <div class="schedule-time-label">Desde</div>
+          <input type="time" class="schedule-time-input" id="schedule-from" value="23:00" onchange="saveSchedule()">
+        </div>
+        <div class="schedule-time-wrap">
+          <div class="schedule-time-label">Hasta</div>
+          <input type="time" class="schedule-time-input" id="schedule-to" value="08:00" onchange="saveSchedule()">
+        </div>
+      </div>
+      <div class="schedule-status" id="schedule-status-msg"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ══ LLAMADA ENTRANTE ══ -->
@@ -361,6 +598,37 @@
 
   <div class="audio-badge">🎤 Tu micro activo &nbsp;·&nbsp; 📵 Sin tu cámara</div>
 
+
+  <!-- Chat overlay -->
+  <div class="chat-overlay" id="chat-overlay" style="display:none">
+    <div class="chat-bubble" id="chat-bubble">
+      <div class="chat-toggle-bar" onclick="toggleChat()">
+        <div class="chat-toggle-label">
+          💬 Chat
+          <div class="chat-new-dot" id="chat-new-dot"></div>
+        </div>
+        <span class="chat-collapse-icon">▲</span>
+      </div>
+      <div class="chat-body">
+        <div class="chat-quickreplies-overlay">
+          <span class="chat-quick-overlay" onclick="sendQuickNeighbor('Ahora bajo')">Ahora bajo</span>
+          <span class="chat-quick-overlay" onclick="sendQuickNeighbor('Deja el paquete en la puerta')">Deja en la puerta</span>
+          <span class="chat-quick-overlay" onclick="sendQuickNeighbor('Deja en conserjería')">Conserjería</span>
+          <span class="chat-quick-overlay" onclick="sendQuickNeighbor('Vuelve en 10 minutos')">Vuelve en 10 min</span>
+          <span class="chat-quick-overlay" onclick="sendQuickNeighbor('No esperaba visita')">No esperaba visita</span>
+        </div>
+        <div class="chat-messages-overlay" id="neighbor-chat-messages">
+          <div class="chat-empty-overlay" id="neighbor-chat-empty">Los mensajes aparecerán aquí</div>
+        </div>
+        <div class="chat-input-row-overlay">
+          <input type="text" class="chat-input-overlay" id="neighbor-chat-input" placeholder="Escribe un mensaje..." maxlength="200" onkeydown="if(event.key==='Enter')sendNeighborChatMsg()">
+          <button class="chat-send-overlay" onclick="sendNeighborChatMsg()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="call-controls">
     <button class="ctrl-btn ctrl-mute" id="btn-mute" onclick="toggleMute()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -383,19 +651,13 @@ const API_BASE   = 'https://merry-joy-production-4504.up.railway.app/api';
 const STUN_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun.relay.metered.ca:80' },
   {
-    urls: 'turn:global.relay.metered.ca:80',
+    urls: 'turn:global.relay.metered.ca:443?transport=tcp',
     username: 'e6cb7af71057fddef426ea95',
     credential: 'el8RlAfkuUr8C3eOA'
   },
   {
-    urls: 'turn:global.relay.metered.ca:443',
-    username: 'e6cb7af71057fddef426ea95',
-    credential: 'el8RlAfkuUr8C3eOA'
-  },
-  {
-    urls: 'turns:global.relay.metered.ca:443',
+    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
     username: 'e6cb7af71057fddef426ea95',
     credential: 'el8RlAfkuUr8C3eOA'
   }
@@ -414,6 +676,51 @@ let callStartTime = null;
 const urlParams  = new URLSearchParams(location.search);
 const urlPortal  = urlParams.get('portal') || '';
 const urlContest = urlParams.get('contestar') === 'true';
+
+
+// ── Detección de app instalada ────────────────────────────
+function isInstalledApp() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true ||
+         document.referrer.includes('android-app://');
+}
+
+function showOS(os) {
+  document.getElementById('tab-android').classList.toggle('active', os === 'android');
+  document.getElementById('tab-ios').classList.toggle('active', os === 'ios');
+  document.getElementById('steps-android').style.display = os === 'android' ? 'block' : 'none';
+  document.getElementById('steps-ios').style.display     = os === 'ios'     ? 'block' : 'none';
+}
+
+function checkInstalled() {
+  if (isInstalledApp()) {
+    goToSetup();
+  } else {
+    alert('Todavía no detectamos que la app esté instalada.\n\nSigue los pasos, instala la app y ábrela desde el icono de tu pantalla de inicio.');
+  }
+}
+
+function goToSetup() {
+  showAllScreens('screen-setup');
+}
+
+function showAllScreens(id) {
+  ['screen-install','screen-setup','screen-standby','screen-incoming','screen-call'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  });
+}
+
+// ── Inicialización ────────────────────────────────────────
+function initApp() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS) showOS('ios');
+
+  if (isInstalledApp()) {
+    showAllScreens('screen-setup');
+  } else {
+    showAllScreens('screen-install');
+  }
+}
 
 function show(id) {
   ['screen-setup','screen-standby','screen-incoming','screen-call'].forEach(s => {
@@ -472,6 +779,7 @@ async function activate() {
 
   // Push
   document.getElementById('install-banner').style.display = 'block';
+  loadSchedule();
   await setupPush();
 
   show('screen-standby');
@@ -525,16 +833,112 @@ function setPushStatus(ok, msg) {
 
 // ── WebSocket ─────────────────────────────────────────────
 function connectWS() {
+
+// ── Horario silencioso ────────────────────────────────────
+function loadSchedule() {
+  const enabled = localStorage.getItem('schedule-enabled') === 'true';
+  const from    = localStorage.getItem('schedule-from') || '23:00';
+  const to      = localStorage.getItem('schedule-to')   || '08:00';
+
+  document.getElementById('schedule-from').value = from;
+  document.getElementById('schedule-to').value   = to;
+
+  const toggle = document.getElementById('schedule-toggle');
+  const config = document.getElementById('schedule-config');
+
+  if (enabled) {
+    toggle.classList.add('on');
+    config.style.display = 'block';
+  } else {
+    toggle.classList.remove('on');
+    config.style.display = 'none';
+  }
+  updateScheduleStatus();
+}
+
+function toggleSchedule() {
+  const toggle  = document.getElementById('schedule-toggle');
+  const config  = document.getElementById('schedule-config');
+  const enabled = !toggle.classList.contains('on');
+
+  toggle.classList.toggle('on', enabled);
+  config.style.display = enabled ? 'block' : 'none';
+  localStorage.setItem('schedule-enabled', enabled);
+  updateScheduleStatus();
+}
+
+function saveSchedule() {
+  localStorage.setItem('schedule-from', document.getElementById('schedule-from').value);
+  localStorage.setItem('schedule-to',   document.getElementById('schedule-to').value);
+  updateScheduleStatus();
+}
+
+function updateScheduleStatus() {
+  const enabled = localStorage.getItem('schedule-enabled') === 'true';
+  const msgEl   = document.getElementById('schedule-status-msg');
+  if (!enabled || !msgEl) return;
+
+  const from = document.getElementById('schedule-from').value;
+  const to   = document.getElementById('schedule-to').value;
+  const now  = isQuietHours(from, to);
+
+  msgEl.textContent = now
+    ? 'Ahora en silencio — las llamadas no sonarán'
+    : 'Ahora activo — las llamadas suenan con normalidad';
+  msgEl.className = 'schedule-status ' + (now ? 'quiet-hours' : 'active-hours');
+}
+
+function isQuietHours(from, to) {
+  const now   = new Date();
+  const h     = now.getHours();
+  const m     = now.getMinutes();
+  const curr  = h * 60 + m;
+
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  const start = fh * 60 + fm;
+  const end   = th * 60 + tm;
+
+  // Si el horario cruza medianoche (ej: 23:00 - 08:00)
+  if (start > end) {
+    return curr >= start || curr < end;
+  }
+  // Si no cruza medianoche (ej: 14:00 - 18:00)
+  return curr >= start && curr < end;
+}
+
+function isCurrentlyQuiet() {
+  const enabled = localStorage.getItem('schedule-enabled') === 'true';
+  if (!enabled) return false;
+  const from = localStorage.getItem('schedule-from') || '23:00';
+  const to   = localStorage.getItem('schedule-to')   || '08:00';
+  return isQuietHours(from, to);
+}
+
   ws = new WebSocket(SERVER_URL);
 
   ws.onopen = () => send({ type: 'join', room: myRoom, role: 'neighbor', portalId: myPortalId });
 
   ws.onmessage = async ({ data }) => {
     const msg = JSON.parse(data);
-    if (msg.type === 'visitor-calling') { playRingtone(); show('screen-incoming'); }
+    if (msg.type === 'visitor-calling') {
+      if (isCurrentlyQuiet()) {
+        // Horario silencioso: mostrar la llamada SIN sonido
+        show('screen-incoming');
+        // Añadir indicador visual de modo silencioso
+        const tag = document.querySelector('.incoming-tag');
+        if (tag) tag.textContent = '🔕 Llamada entrante (silencio)';
+      } else {
+        playRingtone();
+        show('screen-incoming');
+        const tag = document.querySelector('.incoming-tag');
+        if (tag) tag.textContent = '🔔 Llamada entrante';
+      }
+    }
     if (msg.type === 'offer') await handleOffer(msg.sdp);
     if (msg.type === 'ice') { try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {} }
     if (msg.type === 'hangup') endCall(false);
+    if (msg.type === 'chat') appendNeighborChat(msg.text, 'received', 'Visitante');
   };
 
   ws.onclose = () => { setTimeout(() => { if (myRoom) connectWS(); }, 3000); };
@@ -555,7 +959,7 @@ function rejectCall() {
 }
 
 async function handleOffer(sdp) {
-  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'relay' });
   micStream.getAudioTracks().forEach(track => pc.addTrack(track, micStream));
 
   pc.ontrack = ({ track, streams }) => {
@@ -575,7 +979,7 @@ async function handleOffer(sdp) {
   pc.onicecandidate = ({ candidate }) => { if (candidate) send({ type: 'ice', room: myRoom, candidate }); };
 
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'connected') { callStartTime = Date.now(); startTimer(); }
+    if (pc.connectionState === 'connected') { callStartTime = Date.now(); startTimer(); document.getElementById('chat-overlay').style.display = 'block'; }
     if (['disconnected','failed','closed'].includes(pc.connectionState)) endCall(false);
   };
 
@@ -593,10 +997,74 @@ function endCall(notify = true) {
   if (notify && ws && ws.readyState === WebSocket.OPEN) send({ type: 'hangup', room: myRoom, duration });
   if (pc) { pc.close(); pc = null; }
   callStartTime = null;
+  document.getElementById('chat-overlay').style.display = 'none';
+  clearNeighborChat();
   document.getElementById('remote-video').srcObject = null;
   document.getElementById('video-placeholder').style.display = 'flex';
   document.getElementById('video-placeholder').style.opacity = '1';
   show('screen-standby');
+}
+
+
+// ── Chat (vecino) ──────────────────────────────────────────
+function toggleChat() {
+  const bubble = document.getElementById('chat-bubble');
+  bubble.classList.toggle('open');
+  if (bubble.classList.contains('open')) {
+    document.getElementById('chat-new-dot').style.display = 'none';
+    const container = document.getElementById('neighbor-chat-messages');
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function sendNeighborChatMsg() {
+  const input = document.getElementById('neighbor-chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  send({ type: 'chat', room: myRoom, text, from: 'neighbor' });
+  appendNeighborChat(text, 'sent', 'Tú');
+}
+
+function sendQuickNeighbor(text) {
+  send({ type: 'chat', room: myRoom, text, from: 'neighbor' });
+  appendNeighborChat(text, 'sent', 'Tú');
+  // Abrir el chat si está cerrado
+  const bubble = document.getElementById('chat-bubble');
+  if (!bubble.classList.contains('open')) bubble.classList.add('open');
+}
+
+function appendNeighborChat(text, cls, label) {
+  const container = document.getElementById('neighbor-chat-messages');
+  const empty     = document.getElementById('neighbor-chat-empty');
+  if (empty) empty.remove();
+
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg-overlay ' + cls;
+  msg.innerHTML = `<div class="chat-msg-label-overlay">${label}</div>${escapeNeighborHtml(text)}`;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+
+  if (cls === 'received') {
+    const dot = document.getElementById('chat-new-dot');
+    const bubble = document.getElementById('chat-bubble');
+    if (!bubble.classList.contains('open')) {
+      dot.style.display = 'block';
+      // Vibrar el móvil si tiene soporte
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    }
+  }
+}
+
+function clearNeighborChat() {
+  const container = document.getElementById('neighbor-chat-messages');
+  container.innerHTML = '<div class="chat-empty-overlay" id="neighbor-chat-empty">Los mensajes aparecerán aquí</div>';
+  const bubble = document.getElementById('chat-bubble');
+  bubble.classList.remove('open');
+}
+
+function escapeNeighborHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function toggleMute() {
