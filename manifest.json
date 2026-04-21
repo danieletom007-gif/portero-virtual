@@ -2,10 +2,11 @@
   "name": "Portero Virtual",
   "short_name": "Mi Portero",
   "description": "Recibe llamadas del portal de tu edificio",
-  "start_url": "/vecino.html",
+  "start_url": "/portero-virtual/vecino.html",
+  "scope": "/portero-virtual/",
   "display": "standalone",
   "background_color": "#0c0c0e",
-  "theme_color": "#0c0c0e",
+  "theme_color": "#6366f1",
   "orientation": "portrait",
   "icons": [
     {
