@@ -394,6 +394,7 @@ tr:hover td { background: var(--bg); }
 .spinner { width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -951,7 +952,7 @@ tr:hover td { background: var(--bg); }
     </div>
     <div class="modal-body">
       <div class="qr-preview">
-        <canvas id="qr-canvas" width="200" height="200"></canvas>
+        <div id="qr-canvas" style="display:flex;justify-content:center;align-items:center;min-height:200px"></div>
         <div class="qr-url" id="qr-url-text">—</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:16px">
@@ -1521,42 +1522,16 @@ function openQRModalDirect(portalId, name) {
 }
 
 function generateQRCanvas(text) {
-  const canvas  = document.getElementById('qr-canvas');
-  const ctx     = canvas.getContext('2d');
-  const size    = 200;
-  canvas.width  = size;
-  canvas.height = size;
-
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, size, size);
-
-  const cols = 25;
-  const cell = Math.floor(size / cols);
-  let h = 0;
-  for (let k = 0; k < text.length; k++) h = (h * 31 + text.charCodeAt(k)) >>> 0;
-
-  for (let r = 0; r < cols; r++) {
-    for (let c = 0; c < cols; c++) {
-      const isFinder = (r < 7 && c < 7) || (r < 7 && c >= cols-7) || (r >= cols-7 && c < 7);
-      const isTiming = r === 6 || c === 6;
-      let on = false;
-      if (isFinder) {
-        const br = r < 7 ? r : r - (cols-7);
-        const bc = c < 7 ? c : c - (cols-7);
-        if (br >= 0 && br < 7 && bc >= 0 && bc < 7) {
-          on = br===0||br===6||bc===0||bc===6||(br>=2&&br<=4&&bc>=2&&bc<=4);
-        }
-      } else if (isTiming) {
-        on = (r+c) % 2 === 0;
-      } else {
-        on = ((h ^ (r*c*7+r*13+c*17)) & 1) === 1;
-      }
-      if (on) {
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(c*cell, r*cell, cell, cell);
-      }
-    }
-  }
+  const container = document.getElementById('qr-canvas');
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: text,
+    width: 200,
+    height: 200,
+    colorDark: '#1a1a1a',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
 }
 
 function copyQRUrl() {
@@ -1565,8 +1540,10 @@ function copyQRUrl() {
 }
 
 function downloadQR() {
-  const canvas = document.getElementById('qr-canvas');
-  const link   = document.createElement('a');
+  const container = document.getElementById('qr-canvas');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) return toast('Error generando QR', 'error');
+  const link = document.createElement('a');
   link.download = `QR-portal-${currentPortalId}.png`;
   link.href = canvas.toDataURL();
   link.click();
