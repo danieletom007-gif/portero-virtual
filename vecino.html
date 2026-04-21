@@ -396,8 +396,7 @@
 
     <div class="install-icon">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round">
-        <path d="M12 18.5L6.5 13M12 18.5L17.5 13M12 18.5V5"/>
-        <rect x="3" y="19" width="18" height="2" rx="1"/>
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
     </div>
     <div class="install-title">Instala la app primero</div>
@@ -408,7 +407,7 @@
       Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
     </div>
 
-    <!-- Botón nativo Android (aparece automáticamente si Chrome lo permite) -->
+    <!-- Botón nativo (si Chrome lo ofrece automáticamente) -->
     <button class="btn-installed" id="btn-install-native" onclick="doNativeInstall()" style="display:none;background:var(--accent);color:white;margin-bottom:14px">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Instalar app ahora
@@ -420,20 +419,36 @@
       <div class="os-tab" id="tab-ios" onclick="showOS('ios')">iPhone</div>
     </div>
 
-    <!-- Pasos Android -->
-    <div class="install-steps" id="steps-android">
-      <div class="install-step"><div class="step-num">1</div><div class="step-text">Pulsa el menú <strong>⋮</strong> (tres puntos) arriba a la derecha del navegador</div></div>
-      <div class="install-step"><div class="step-num">2</div><div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div></div>
-      <div class="install-step"><div class="step-num">3</div><div class="step-text">Confirma pulsando <strong>"Instalar"</strong></div></div>
-      <div class="install-step"><div class="step-num">4</div><div class="step-text">Abre la app desde el <strong>icono que aparece en tu pantalla de inicio</strong> y vuelve aquí</div></div>
+    <!-- Android: instrucciones compactas con iconos -->
+    <div id="steps-android" class="install-steps">
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:700;color:white">⋮</div>
+        <div class="step-text">Pulsa los <strong>tres puntos</strong> arriba a la derecha del navegador</div>
+      </div>
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
+        <div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div>
+      </div>
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">✅</div>
+        <div class="step-text">Confirma y abre la app desde el <strong>icono de tu pantalla de inicio</strong></div>
+      </div>
     </div>
 
-    <!-- Pasos iPhone -->
-    <div class="install-steps" id="steps-ios" style="display:none">
-      <div class="install-step"><div class="step-num">1</div><div class="step-text">Asegúrate de usar <strong>Safari</strong> (no Chrome)</div></div>
-      <div class="install-step"><div class="step-num">2</div><div class="step-text">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha hacia arriba) en la barra inferior</div></div>
-      <div class="install-step"><div class="step-num">3</div><div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong></div></div>
-      <div class="install-step"><div class="step-num">4</div><div class="step-text">Pulsa <strong>"Añadir"</strong> y abre la app desde tu pantalla de inicio</div></div>
+    <!-- iPhone: instrucciones compactas -->
+    <div id="steps-ios" class="install-steps" style="display:none">
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">⬆️</div>
+        <div class="step-text">En <strong>Safari</strong>, pulsa el botón compartir (cuadrado con flecha) abajo</div>
+      </div>
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
+        <div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong> y pulsa <strong>"Añadir"</strong></div>
+      </div>
+      <div class="install-step">
+        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">✅</div>
+        <div class="step-text">Abre la app desde el <strong>icono de tu pantalla de inicio</strong></div>
+      </div>
     </div>
 
     <button class="btn-installed" onclick="checkInstalled()">
@@ -442,10 +457,9 @@
     </button>
     <div class="already-installed">¿Ya está instalada? <a onclick="goToSetup()">Saltar este paso</a></div>
 
-    <!-- IDs necesarios para compatibilidad con JS -->
+    <!-- divs de compatibilidad -->
     <div id="install-android" style="display:none"></div>
     <div id="install-android-manual" style="display:none"></div>
-    <div id="install-ios-hidden" style="display:none"></div>
   </div>
 </div>
 
@@ -798,13 +812,15 @@ function showScreen(id) {
 }
 
 // ── Inicialización ────────────────────────────────────────
-function initApp() {
+async function initApp() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  // Cargar info del portal primero si hay portal en URL
+  if (urlPortal) await loadPortalInfo(urlPortal);
 
   // Si está instalada como app standalone, ir directo al setup
   if (isInstalledApp()) {
     showAllScreens('screen-setup');
-    if (urlPortal) loadPortalInfo(urlPortal);
     return;
   }
 
@@ -820,8 +836,6 @@ function initApp() {
   if (isIOS) {
     showInstallSection('ios');
   } else {
-    // Mostrar instrucciones manuales por defecto
-    // Si Chrome ofrece el prompt nativo, lo reemplazará
     showInstallSection('android-manual');
   }
 }
