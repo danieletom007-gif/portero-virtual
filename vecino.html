@@ -774,11 +774,9 @@ function showOS(os) {
 }
 
 function checkInstalled() {
-  if (isInstalledApp()) {
-    goToSetup();
-  } else {
-    alert('Todavía no detectamos que la app esté instalada.\n\nSigue los pasos, instala la app y ábrela desde el icono de tu pantalla de inicio.');
-  }
+  // Si ya está instalada como app, ir directo al setup
+  // Si no, también dejar pasar — el vecino sabe lo que hace
+  goToSetup();
 }
 
 function goToSetup() {
@@ -795,7 +793,14 @@ function showAllScreens(id) {
 function initApp() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+  // Si está instalada como app standalone, ir directo al setup
   if (isInstalledApp()) {
+    showAllScreens('screen-setup');
+    return;
+  }
+
+  // Si viene desde notificación push con contestar=true, ir directo
+  if (urlContest) {
     showAllScreens('screen-setup');
     return;
   }
@@ -806,8 +811,8 @@ function initApp() {
   if (isIOS) {
     showInstallSection('ios');
   } else {
-    // Mostrar instrucciones manuales inmediatamente
-    // Si el prompt nativo llega después, las reemplazará automáticamente
+    // Mostrar instrucciones manuales por defecto
+    // Si Chrome ofrece el prompt nativo, lo reemplazará
     showInstallSection('android-manual');
   }
 }
