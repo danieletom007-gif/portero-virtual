@@ -393,83 +393,63 @@
 <!-- ══ PANTALLA 0: INSTALACIÓN OBLIGATORIA ══ -->
 <div id="screen-install">
   <div class="install-card">
-    <!-- Android: botón directo -->
-    <div id="install-android" style="display:none">
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:64px;margin-bottom:12px">📲</div>
-        <div class="install-title">Instala el portero</div>
-        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado necesitas instalar esta app.</div>
-      </div>
-      <button class="btn-installed" id="btn-install-native" onclick="doNativeInstall()" style="background:var(--accent);color:white;margin-bottom:12px">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Instalar app
-      </button>
-      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
-        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
-        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
-      </div>
-      <div class="already-installed">¿Ya instalada? <a onclick="goToSetup()">Continuar sin instalar</a></div>
+
+    <div class="install-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round">
+        <path d="M12 18.5L6.5 13M12 18.5L17.5 13M12 18.5V5"/>
+        <rect x="3" y="19" width="18" height="2" rx="1"/>
+      </svg>
+    </div>
+    <div class="install-title">Instala la app primero</div>
+    <div class="install-sub">Para recibir llamadas con el móvil bloqueado necesitas instalar esta página como app.</div>
+
+    <div class="install-why">
+      <strong>⚠ Importante</strong>
+      Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
     </div>
 
-    <!-- Android fallback: si el prompt no está disponible -->
-    <div id="install-android-manual" style="display:none">
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="font-size:56px;margin-bottom:10px">📲</div>
-        <div class="install-title">Instala el portero</div>
-        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado.</div>
-      </div>
-      <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">⋮</div>
-          <div style="font-size:13px;color:var(--text)">Pulsa los <strong>tres puntos</strong> arriba a la derecha del navegador</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
-          <div style="font-size:13px;color:var(--text)">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div>
-        </div>
-      </div>
-      <button class="btn-installed" onclick="checkInstalled()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        Ya la he instalado, continuar
-      </button>
-      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
-        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
-        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
-      </div>
-      <div class="already-installed">¿Problemas? <a onclick="goToSetup()">Continuar sin instalar</a></div>
+    <!-- Botón nativo Android (aparece automáticamente si Chrome lo permite) -->
+    <button class="btn-installed" id="btn-install-native" onclick="doNativeInstall()" style="display:none;background:var(--accent);color:white;margin-bottom:14px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Instalar app ahora
+    </button>
+
+    <!-- Tabs Android / iPhone -->
+    <div class="os-tabs" id="os-tabs-wrap">
+      <div class="os-tab active" id="tab-android" onclick="showOS('android')">Android</div>
+      <div class="os-tab" id="tab-ios" onclick="showOS('ios')">iPhone</div>
     </div>
 
-    <!-- iPhone -->
-    <div id="install-ios" style="display:none">
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="font-size:56px;margin-bottom:10px">📲</div>
-        <div class="install-title">Instala el portero</div>
-        <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado. Solo funciona con <strong>Safari</strong>.</div>
-      </div>
-      <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">⬆️</div>
-          <div style="font-size:13px;color:var(--text)">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha) abajo en Safari</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
-          <div style="font-size:13px;color:var(--text)">Selecciona <strong>"Añadir a pantalla de inicio"</strong> y pulsa <strong>"Añadir"</strong></div>
-        </div>
-      </div>
-      <button class="btn-installed" onclick="checkInstalled()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        Ya la he instalado, continuar
-      </button>
-      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fbbf24;line-height:1.5">
-        <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
-        Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
-      </div>
-      <div class="already-installed">¿Problemas? <a onclick="goToSetup()">Continuar sin instalar</a></div>
+    <!-- Pasos Android -->
+    <div class="install-steps" id="steps-android">
+      <div class="install-step"><div class="step-num">1</div><div class="step-text">Pulsa el menú <strong>⋮</strong> (tres puntos) arriba a la derecha del navegador</div></div>
+      <div class="install-step"><div class="step-num">2</div><div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div></div>
+      <div class="install-step"><div class="step-num">3</div><div class="step-text">Confirma pulsando <strong>"Instalar"</strong></div></div>
+      <div class="install-step"><div class="step-num">4</div><div class="step-text">Abre la app desde el <strong>icono que aparece en tu pantalla de inicio</strong> y vuelve aquí</div></div>
     </div>
+
+    <!-- Pasos iPhone -->
+    <div class="install-steps" id="steps-ios" style="display:none">
+      <div class="install-step"><div class="step-num">1</div><div class="step-text">Asegúrate de usar <strong>Safari</strong> (no Chrome)</div></div>
+      <div class="install-step"><div class="step-num">2</div><div class="step-text">Pulsa el botón <strong>compartir</strong> (cuadrado con flecha hacia arriba) en la barra inferior</div></div>
+      <div class="install-step"><div class="step-num">3</div><div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong></div></div>
+      <div class="install-step"><div class="step-num">4</div><div class="step-text">Pulsa <strong>"Añadir"</strong> y abre la app desde tu pantalla de inicio</div></div>
+    </div>
+
+    <button class="btn-installed" onclick="checkInstalled()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      Ya la he instalado, continuar
+    </button>
+    <div class="already-installed">¿Ya está instalada? <a onclick="goToSetup()">Saltar este paso</a></div>
+
+    <!-- IDs necesarios para compatibilidad con JS -->
+    <div id="install-android" style="display:none"></div>
+    <div id="install-android-manual" style="display:none"></div>
+    <div id="install-ios-hidden" style="display:none"></div>
   </div>
 </div>
 
-<!-- ══ SETUP ══ -->
+<!-- ══ SETUP: PASO 1 — SELECCIONAR PISO ══ -->
 <div id="screen-setup">
   <div class="setup-card">
     <div class="logo">
@@ -482,24 +462,14 @@
       <div class="logo-text">Mi Portero</div>
     </div>
 
-    <div class="install-banner" id="install-banner">
-      <strong>💡 Instala la app en tu móvil</strong>
-      Para recibir avisos con el móvil bloqueado: en iPhone pulsa el botón de compartir → "Añadir a inicio". En Android pulsa ⋮ → "Instalar app".
-    </div>
+    <!-- Nombre del edificio -->
+    <div id="setup-building-name" style="font-size:18px;font-weight:600;margin-bottom:4px;color:var(--text)">—</div>
+    <div id="setup-building-address" style="font-size:13px;color:var(--muted);margin-bottom:20px">—</div>
 
-    <h1>Tu portero virtual</h1>
-    <p class="subtitle">Selecciona tu piso. Recibirás una notificación cada vez que llamen, aunque tengas el móvil en el bolsillo.</p>
+    <h1>¿Cuál es tu piso?</h1>
+    <p class="subtitle">Selecciona tu piso y letra. Recibirás una notificación cada vez que llamen.</p>
 
-    <label>Tu edificio y piso</label>
-
-    <!-- Selector de portal (si el vecino tiene varios portales) -->
-    <div class="select-wrap" id="portal-wrap" style="display:none">
-      <div class="select-label-inner">Portal</div>
-      <select id="sel-portal" onchange="onPortalChange()">
-        <option value="">—</option>
-      </select>
-    </div>
-
+    <label>Tu piso</label>
     <div class="selects-row">
       <div class="select-wrap">
         <div class="select-label-inner">Piso</div>
@@ -519,6 +489,26 @@
       </div>
     </div>
 
+    <button class="btn-activate" onclick="goConfirm()">
+      Siguiente →
+    </button>
+  </div>
+</div>
+
+<!-- ══ SETUP: PASO 2 — CONFIRMAR PISO ══ -->
+<div id="screen-confirm" style="display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:32px 24px">
+  <div class="setup-card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:48px;margin-bottom:12px">🏠</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px" id="confirm-building-name2">—</div>
+      <div style="font-size:28px;font-weight:700;color:var(--text)" id="confirm-floor-display">—</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px" id="confirm-address2">—</div>
+    </div>
+
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:12px;padding:14px;margin-bottom:24px;font-size:13px;color:var(--green);text-align:center">
+      ¿Es correcta tu vivienda? Si es así pulsa <strong>"Activar portero"</strong>
+    </div>
+
     <button class="btn-activate" onclick="activate()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -526,7 +516,11 @@
       Activar portero
     </button>
 
-    <p class="permissions-note">Se pedirá permiso al micrófono y a las notificaciones.<br>Tu cámara no se activa en ningún momento.</p>
+    <button style="width:100%;padding:12px;background:transparent;border:1px solid var(--border2);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--muted);cursor:pointer;margin-top:10px" onclick="showScreen('screen-setup')">
+      ← Cambiar piso
+    </button>
+
+    <p class="permissions-note" style="margin-top:14px">Se pedirá permiso al micrófono y a las notificaciones.<br>Tu cámara no se activa en ningún momento.</p>
   </div>
 </div>
 
@@ -748,12 +742,21 @@ async function doNativeInstall() {
 }
 
 function showInstallSection(section) {
-  ['install-android','install-android-manual','install-ios'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  const target = document.getElementById('install-' + section);
-  if (target) target.style.display = 'block';
+  // Con el nuevo diseño unificado solo mostramos iOS o Android según el dispositivo
+  if (section === 'ios') {
+    document.getElementById('steps-android').style.display = 'none';
+    document.getElementById('steps-ios').style.display = 'block';
+    document.getElementById('tab-android').classList.remove('active');
+    document.getElementById('tab-ios').classList.add('active');
+  } else {
+    // Android: mostrar pasos normales
+    document.getElementById('steps-android').style.display = 'block';
+    document.getElementById('steps-ios').style.display = 'none';
+  }
+  // Si hay prompt nativo disponible, mostrar botón directo
+  if (section === 'android' && deferredPrompt) {
+    document.getElementById('btn-install-native').style.display = 'flex';
+  }
 }
 
 // ── Detección de app instalada ────────────────────────────
@@ -784,9 +787,14 @@ function goToSetup() {
 }
 
 function showAllScreens(id) {
-  ['screen-install','screen-setup','screen-standby','screen-incoming','screen-call'].forEach(s => {
-    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  ['screen-install','screen-setup','screen-confirm','screen-standby','screen-incoming','screen-call'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = s === id ? 'flex' : 'none';
   });
+}
+
+function showScreen(id) {
+  showAllScreens(id);
 }
 
 // ── Inicialización ────────────────────────────────────────
@@ -796,6 +804,7 @@ function initApp() {
   // Si está instalada como app standalone, ir directo al setup
   if (isInstalledApp()) {
     showAllScreens('screen-setup');
+    if (urlPortal) loadPortalInfo(urlPortal);
     return;
   }
 
@@ -829,10 +838,25 @@ async function loadPortalInfo(portalId) {
     const res = await fetch(`${API_BASE}/portal/${portalId}/public`);
     if (res.ok) {
       portalInfo = await res.json();
+      // Mostrar nombre del edificio en setup
+      const nameEl = document.getElementById('setup-building-name');
+      const addrEl = document.getElementById('setup-building-address');
+      if (nameEl) nameEl.textContent = portalInfo.name || '';
+      if (addrEl) addrEl.textContent = (portalInfo.address || '') + (portalInfo.city ? ', ' + portalInfo.city : '');
       return portalInfo;
     }
   } catch {}
   return null;
+}
+
+// ── Confirmar piso ────────────────────────────────────────
+function goConfirm() {
+  const floor  = document.getElementById('sel-floor').value;
+  const letter = document.getElementById('sel-letter').value;
+  document.getElementById('confirm-floor-display').textContent = floor + 'º ' + letter;
+  document.getElementById('confirm-building-name2').textContent = portalInfo ? portalInfo.name : '';
+  document.getElementById('confirm-address2').textContent = portalInfo ? (portalInfo.address || '') + (portalInfo.city ? ', ' + portalInfo.city : '') : '';
+  showAllScreens('screen-confirm');
 }
 
 // ── Activar ───────────────────────────────────────────────
