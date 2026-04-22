@@ -493,19 +493,11 @@
 
     <div class="section-label">¿A quién desea llamar?</div>
 
-    <div class="selects-row">
-      <div class="select-wrap">
-        <div class="select-label-inner">Piso</div>
-        <select id="sel-floor" class="empty" onchange="onFloorChange()" ontouchend="setTimeout(onFloorChange,100)">
-          <option value="">—</option>
-        </select>
-      </div>
-      <div class="select-wrap">
-        <div class="select-label-inner">Letra / Puerta</div>
-        <select id="sel-letter" class="empty" onchange="onSelectChange()" ontouchend="setTimeout(onSelectChange,100)">
-          <option value="">—</option>
-        </select>
-      </div>
+    <div class="select-wrap" style="margin-bottom:22px">
+      <div class="select-label-inner">Vivienda</div>
+      <select id="sel-unit" class="empty" onchange="onUnitChange()" ontouchend="setTimeout(onUnitChange,100)" style="font-size:16px;padding:28px 36px 12px 14px">
+        <option value="">— Selecciona tu vivienda —</option>
+      </select>
     </div>
 
     <!-- Caja de confirmación: aparece al elegir piso y letra -->
@@ -742,76 +734,60 @@ function setBuilding(name, address, city) {
 
 // ── Poblar selectores ─────────────────────────────────────
 function populateFloors(floors) {
-  const selFloor = document.getElementById('sel-floor');
-  selFloor.innerHTML = '<option value="">—</option>';
+  const sel = document.getElementById('sel-unit');
+  sel.innerHTML = '<option value="">— Selecciona tu vivienda —</option>';
   floors.forEach(f => {
     const opt = document.createElement('option');
-    opt.value = f.number;
-    opt.textContent = f.number + 'º';
-    selFloor.appendChild(opt);
+    // Soporta tanto formato nuevo (id+label) como antiguo (number+letters)
+    if (f.label) {
+      opt.value = f.id;
+      opt.textContent = f.label;
+    } else {
+      opt.value = f.number;
+      opt.textContent = f.number + 'º';
+    }
+    sel.appendChild(opt);
   });
 }
 
-function onFloorChange() {
-  const floorVal  = document.getElementById('sel-floor').value;
-  const selLetter = document.getElementById('sel-letter');
-
-  // Limpiar letras anteriores
-  selLetter.innerHTML = '<option value="">—</option>';
-
-  if (floorVal && portalData) {
-    const floor = portalData.floors.find(f => f.number == floorVal);
-    if (floor) {
-      floor.letters.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = l;
-        opt.textContent = l;
-        selLetter.appendChild(opt);
-      });
-    }
-    selLetter.classList.remove('empty');
-    document.getElementById('sel-floor').classList.remove('empty');
-  }
-
-  updateCallButton();
-}
-
-function onSelectChange() {
-  updateCallButton();
-}
-
-function updateCallButton() {
-  const floorVal  = document.getElementById('sel-floor').value;
-  const letterVal = document.getElementById('sel-letter').value;
+function onUnitChange() {
+  const sel       = document.getElementById('sel-unit');
+  const unitVal   = sel ? sel.value : '';
+  const unitLabel = sel ? (sel.options[sel.selectedIndex]?.text || '') : '';
   const btnCall   = document.getElementById('btn-call');
   const confirmBox = document.getElementById('confirm-box');
-  const ready = floorVal && letterVal;
+  const ready = !!unitVal;
 
+  if (sel) sel.classList.toggle('empty', !ready);
   btnCall.disabled = !ready;
 
   if (ready && portalData) {
-    document.getElementById('confirm-dest').textContent =
-      'Piso ' + floorVal + 'º · Puerta ' + letterVal;
-    document.getElementById('confirm-building-name').textContent =
-      portalData.address;
+    document.getElementById('confirm-dest').textContent = unitLabel;
+    document.getElementById('confirm-building-name').textContent = portalData.address || '';
     confirmBox.classList.add('visible');
   } else {
     confirmBox.classList.remove('visible');
   }
 }
 
+// Compatibilidad
+function onFloorChange()   { onUnitChange(); }
+function onSelectChange()  { onUnitChange(); }
+function updateCallButton(){ onUnitChange(); }
+
 // ── Iniciar llamada ───────────────────────────────────────
 async function startCall() {
   clearError();
-  const floor  = document.getElementById('sel-floor').value;
-  const letter = document.getElementById('sel-letter').value;
+  const sel     = document.getElementById('sel-unit');
+  const unitId  = sel.value;
+  const unitLabel = sel.options[sel.selectedIndex]?.text || unitId;
 
-  // La sala incluye el portal_id para que sea única globalmente
-  callRoom = `${portalId}-${floor}-${letter}`;
+  // La sala incluye el portal_id y el id de la vivienda
+  callRoom = `${portalId}-${unitId}`;
 
   // Actualizar pantalla "llamando"
   document.getElementById('calling-building-label').textContent = portalData.name;
-  document.getElementById('calling-dest-label').textContent     = `${floor}º ${letter}`;
+  document.getElementById('calling-dest-label').textContent     = unitLabel;
   document.getElementById('calling-address-label').textContent  = portalData.address + (portalData.city ? ', ' + portalData.city : '');
 
   // Pedir cámara + micrófono
@@ -844,7 +820,10 @@ function connectWS() {
   ws = new WebSocket(SERVER_URL);
 
   ws.onopen = () => {
-    send({ type: 'join', room: callRoom, role: 'visitor', portalId });
+    const selU = document.getElementById('sel-unit');
+    const floorId = selU ? selU.value : '';
+    const floorLabel = selU ? (selU.options[selU.selectedIndex]?.text || '') : '';
+    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel });
     setStep(1);
   };
 
