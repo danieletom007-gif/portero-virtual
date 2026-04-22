@@ -395,72 +395,62 @@
 <div id="screen-install">
   <div class="install-card">
 
-    <div class="install-icon">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-    </div>
-    <div class="install-title">Instala la app primero</div>
-    <div class="install-sub">Para recibir llamadas con el móvil bloqueado necesitas instalar esta página como app.</div>
-
-    <div class="install-why">
-      <strong>⚠ Importante</strong>
-      Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+    <!-- Icono móvil arriba -->
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:52px">📲</div>
     </div>
 
-    <!-- Botón nativo (si Chrome lo ofrece automáticamente) -->
-    <button class="btn-installed" id="btn-install-native" onclick="doNativeInstall()" style="display:none;background:var(--accent);color:white;margin-bottom:14px">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Instalar app ahora
-    </button>
+    <!-- Título y subtítulo -->
+    <div class="install-title">Instala el portero</div>
+    <div class="install-sub">Para recibir llamadas cuando tengas el móvil bloqueado.</div>
 
-    <!-- Tabs Android / iPhone -->
-    <div class="os-tabs" id="os-tabs-wrap">
-      <div class="os-tab active" id="tab-android" onclick="showOS('android')">Android</div>
-      <div class="os-tab" id="tab-ios" onclick="showOS('ios')">iPhone</div>
-    </div>
-
-    <!-- Android: instrucciones compactas con iconos -->
-    <div id="steps-android" class="install-steps">
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:700;color:white">⋮</div>
-        <div class="step-text">Pulsa los <strong>tres puntos</strong> arriba a la derecha del navegador</div>
+    <!-- Instrucciones Android en recuadro oscuro -->
+    <div id="steps-android" style="background:rgba(99,102,241,0.12);border-radius:14px;padding:14px 16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+        <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;color:white;font-weight:700">⋮</div>
+        <div style="font-size:14px;color:var(--text)">Pulsa los <strong>tres puntos</strong> arriba a la derecha del navegador</div>
       </div>
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
-        <div class="step-text">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div>
-      </div>
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">✅</div>
-        <div class="step-text">Confirma y abre la app desde el <strong>icono de tu pantalla de inicio</strong></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+        <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px">➕</div>
+        <div style="font-size:14px;color:var(--text)">Selecciona <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong></div>
       </div>
     </div>
 
-    <!-- iPhone: instrucciones compactas -->
-    <div id="steps-ios" class="install-steps" style="display:none">
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">⬆️</div>
-        <div class="step-text">En <strong>Safari</strong>, pulsa el botón compartir (cuadrado con flecha) abajo</div>
+    <!-- Instrucciones iPhone (ocultas por defecto) -->
+    <div id="steps-ios" style="display:none;background:rgba(99,102,241,0.12);border-radius:14px;padding:14px 16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+        <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px">⬆️</div>
+        <div style="font-size:14px;color:var(--text)">En <strong>Safari</strong>, pulsa el botón compartir (cuadrado con flecha) abajo</div>
       </div>
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">➕</div>
-        <div class="step-text">Selecciona <strong>"Añadir a pantalla de inicio"</strong> y pulsa <strong>"Añadir"</strong></div>
-      </div>
-      <div class="install-step">
-        <div style="width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">✅</div>
-        <div class="step-text">Abre la app desde el <strong>icono de tu pantalla de inicio</strong></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+        <div style="width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px">➕</div>
+        <div style="font-size:14px;color:var(--text)">Selecciona <strong>"Añadir a pantalla de inicio"</strong> y pulsa <strong>"Añadir"</strong></div>
       </div>
     </div>
 
+    <!-- Botón instalado -->
     <button class="btn-installed" onclick="checkInstalled()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       Ya la he instalado, continuar
     </button>
-    <div class="already-installed">¿Ya está instalada? <a onclick="goToSetup()">Saltar este paso</a></div>
 
-    <!-- divs de compatibilidad -->
+    <!-- Aviso importante DEBAJO del botón -->
+    <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:13px;color:#fbbf24;line-height:1.5">
+      <strong style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">⚠ Importante</strong>
+      Sin instalar la app no recibirás las llamadas del portal cuando tengas el móvil en el bolsillo o la pantalla apagada.
+    </div>
+
+    <!-- Continuar sin instalar -->
+    <div class="already-installed" style="margin-top:14px">¿Problemas? <a onclick="goToSetup()">Continuar sin instalar</a></div>
+
+    <!-- divs de compatibilidad JS -->
     <div id="install-android" style="display:none"></div>
     <div id="install-android-manual" style="display:none"></div>
+    <button id="btn-install-native" onclick="doNativeInstall()" style="display:none"></button>
+    <div id="os-tabs-wrap" style="display:none">
+      <div id="tab-android"></div>
+      <div id="tab-ios"></div>
+    </div>
   </div>
 </div>
 
