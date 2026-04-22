@@ -391,8 +391,13 @@
 <audio id="visitor-audio" autoplay playsinline></audio>
 
 
+<!-- ══ PANTALLA CARGA INICIAL ══ -->
+<div id="screen-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:100dvh">
+  <div style="width:32px;height:32px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+</div>
+
 <!-- ══ PANTALLA 0: INSTALACIÓN OBLIGATORIA ══ -->
-<div id="screen-install">
+<div id="screen-install" style="display:none">
   <div class="install-card">
 
     <!-- Icono móvil arriba -->
@@ -455,7 +460,7 @@
 </div>
 
 <!-- ══ SETUP: PASO 1 — SELECCIONAR PISO ══ -->
-<div id="screen-setup">
+<div id="screen-setup" style="display:none">
   <div class="setup-card">
     <div class="logo">
       <div class="logo-icon">
@@ -547,7 +552,7 @@
 </div>
 
 <!-- ══ STANDBY ══ -->
-<div id="screen-standby">
+<div id="screen-standby" style="display:none">
   <div class="building-pill" id="standby-building-pill">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -605,7 +610,7 @@
 </div>
 
 <!-- ══ LLAMADA ENTRANTE ══ -->
-<div id="screen-incoming">
+<div id="screen-incoming" style="display:none">
   <div class="incoming-tag">🔔 Llamada entrante</div>
   <div class="avatar">
     <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round">
@@ -820,7 +825,7 @@ function goToSetup() {
 }
 
 function showAllScreens(id) {
-  ['screen-install','screen-setup','screen-confirm','screen-success','screen-standby','screen-incoming','screen-call'].forEach(s => {
+  ['screen-loading','screen-install','screen-setup','screen-confirm','screen-success','screen-standby','screen-incoming','screen-call'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.style.display = s === id ? 'flex' : 'none';
   });
