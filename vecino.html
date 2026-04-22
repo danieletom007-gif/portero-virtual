@@ -732,9 +732,13 @@ let callStartTime = null;
 
 // Leer portal_id de la URL (si el vecino accede con un enlace de su comunidad)
 const urlParams  = new URLSearchParams(location.search);
-const urlPortal  = urlParams.get('portal') || '';
-const urlFloorId = urlParams.get('floor')  || '';
+const urlPortal  = urlParams.get('portal') || localStorage.getItem('portero-portal-url') || '';
+const urlFloorId = urlParams.get('floor')  || localStorage.getItem('portero-floor-url')  || '';
 const urlContest = urlParams.get('contestar') === 'true';
+
+// Guardar portal y floor de la URL en localStorage para cuando se abra desde el icono
+if (urlParams.get('portal')) localStorage.setItem('portero-portal-url', urlParams.get('portal'));
+if (urlParams.get('floor'))  localStorage.setItem('portero-floor-url',  urlParams.get('floor'));
 
 
 
@@ -750,7 +754,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  goToSetup();
+  localStorage.setItem('portero-installed', '1');
+  // No hacer nada aquí - Chrome abrirá la app automáticamente
+  // y initApp() se encargará de mostrar el setup
 });
 
 async function doNativeInstall() {
@@ -786,12 +792,13 @@ function showInstallSection(section) {
 
 // ── Detección de app instalada ────────────────────────────
 function isInstalledApp() {
-  const standalone  = window.matchMedia('(display-mode: standalone)').matches;
+  const standalone    = window.matchMedia('(display-mode: standalone)').matches;
   const iosStandalone = window.navigator.standalone === true;
-  const androidApp  = document.referrer.includes('android-app://');
-  const fullscreen  = window.matchMedia('(display-mode: fullscreen)').matches;
-  const minimalUI   = window.matchMedia('(display-mode: minimal-ui)').matches;
-  return standalone || iosStandalone || androidApp || fullscreen || minimalUI;
+  const androidApp    = document.referrer.includes('android-app://');
+  const fullscreen    = window.matchMedia('(display-mode: fullscreen)').matches;
+  const minimalUI     = window.matchMedia('(display-mode: minimal-ui)').matches;
+  const userConfirmed = localStorage.getItem('portero-installed') === '1';
+  return standalone || iosStandalone || androidApp || fullscreen || minimalUI || userConfirmed;
 }
 
 function showOS(os) {
@@ -802,12 +809,13 @@ function showOS(os) {
 }
 
 function checkInstalled() {
-  // Si ya está instalada como app, ir directo al setup
-  // Si no, también dejar pasar — el vecino sabe lo que hace
+  // Guardar flag de que el vecino confirmó la instalación
+  localStorage.setItem('portero-installed', '1');
   goToSetup();
 }
 
 function goToSetup() {
+  localStorage.setItem('portero-installed', '1');
   showAllScreens('screen-setup');
 }
 
@@ -826,17 +834,19 @@ function showScreen(id) {
 async function initApp() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  // Cargar info del portal primero si hay portal en URL
+  // Cargar info del portal si hay portal disponible
   if (urlPortal) await loadPortalInfo(urlPortal);
 
-  // Si está instalada como app standalone, ir directo al setup
-  if (isInstalledApp()) {
-    showAllScreens('screen-setup');
-    return;
-  }
+  // Detección de modo standalone con todos los métodos posibles
+  const standalone    = window.matchMedia('(display-mode: standalone)').matches;
+  const iosStandalone = window.navigator.standalone === true;
+  const fullscreen    = window.matchMedia('(display-mode: fullscreen)').matches;
+  const minimalUI     = window.matchMedia('(display-mode: minimal-ui)').matches;
+  const userConfirmed = localStorage.getItem('portero-installed') === '1';
+  const isInstalled   = standalone || iosStandalone || fullscreen || minimalUI || userConfirmed;
 
-  // Si viene desde notificación push con contestar=true, ir directo
-  if (urlContest) {
+  // Si está instalada → ir al setup siempre
+  if (isInstalled || urlContest) {
     showAllScreens('screen-setup');
     return;
   }
