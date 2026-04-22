@@ -773,39 +773,26 @@ async function doNativeInstall() {
 }
 
 function showInstallSection(section) {
-  // Con el nuevo diseño unificado solo mostramos iOS o Android según el dispositivo
+  const android = document.getElementById('steps-android');
+  const ios     = document.getElementById('steps-ios');
   if (section === 'ios') {
-    document.getElementById('steps-android').style.display = 'none';
-    document.getElementById('steps-ios').style.display = 'block';
-    document.getElementById('tab-android').classList.remove('active');
-    document.getElementById('tab-ios').classList.add('active');
+    if (android) android.style.display = 'none';
+    if (ios)     ios.style.display = 'block';
   } else {
-    // Android: mostrar pasos normales
-    document.getElementById('steps-android').style.display = 'block';
-    document.getElementById('steps-ios').style.display = 'none';
+    if (android) android.style.display = 'block';
+    if (ios)     ios.style.display = 'none';
   }
-  // Si hay prompt nativo disponible, mostrar botón directo
   if (section === 'android' && deferredPrompt) {
-    document.getElementById('btn-install-native').style.display = 'flex';
+    const btn = document.getElementById('btn-install-native');
+    if (btn) btn.style.display = 'flex';
   }
-}
-
-// ── Detección de app instalada ────────────────────────────
-function isInstalledApp() {
-  const standalone    = window.matchMedia('(display-mode: standalone)').matches;
-  const iosStandalone = window.navigator.standalone === true;
-  const androidApp    = document.referrer.includes('android-app://');
-  const fullscreen    = window.matchMedia('(display-mode: fullscreen)').matches;
-  const minimalUI     = window.matchMedia('(display-mode: minimal-ui)').matches;
-  const userConfirmed = localStorage.getItem('portero-installed') === '1';
-  return standalone || iosStandalone || androidApp || fullscreen || minimalUI || userConfirmed;
 }
 
 function showOS(os) {
-  document.getElementById('tab-android').classList.toggle('active', os === 'android');
-  document.getElementById('tab-ios').classList.toggle('active', os === 'ios');
-  document.getElementById('steps-android').style.display = os === 'android' ? 'block' : 'none';
-  document.getElementById('steps-ios').style.display     = os === 'ios'     ? 'block' : 'none';
+  const android = document.getElementById('steps-android');
+  const ios     = document.getElementById('steps-ios');
+  if (android) android.style.display = os === 'android' ? 'block' : 'none';
+  if (ios)     ios.style.display     = os === 'ios'     ? 'block' : 'none';
 }
 
 function checkInstalled() {
