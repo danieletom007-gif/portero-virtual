@@ -1,69 +1,45 @@
-// sw.js — Service Worker del Portero Virtual SaaS
+const CACHE_NAME = 'portero-v2';
 
-const CACHE_NAME = 'portero-saas-v1';
-
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.addAll(['/vecino.html', '/visitante.html'])
-    )
-  );
+self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', () => self.clients.claim());
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
 
-// ── Notificación push recibida (navegador cerrado) ────────────────────────
-self.addEventListener('push', event => {
-  let data = {};
-  try { data = event.data.json(); } catch { data = { title: 'Llamada en el portal' }; }
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  let data;
+  try { data = e.data.json(); } catch { data = { title: '🔔 Llamada', body: e.data.text() }; }
 
-  const options = {
-    body: data.body || 'Hay una visita en el portal. Pulsa para contestar.',
-    icon: '/icon-192.png',
-    badge: '/icon-96.png',
-    vibrate: [200, 100, 200, 100, 200, 100, 200],
-    requireInteraction: true,
-    tag: 'portero-call',
-    renotify: true,
-    data: {
-      url: data.url || '/vecino.html?contestar=true',
-      room: data.room || ''
-    },
-    actions: [
-      { action: 'accept', title: '📞 Contestar' },
-      { action: 'reject', title: '✕ Rechazar' }
-    ]
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(data.title || '🔔 Llamada en el portal', options)
+  e.waitUntil(
+    self.registration.showNotification(data.title || '🔔 Alguien llama al portal', {
+      body:    data.body  || 'Hay una visita esperando.',
+      icon:    '/portero-virtual/icon-192.png',
+      badge:   '/portero-virtual/icon-192.png',
+      tag:     'portero-llamada',
+      renotify: true,
+      requireInteraction: true,
+      data:    { url: data.url || '/portero-virtual/vecino.html' }
+    })
   );
 });
 
-// ── El vecino pulsa la notificación ──────────────────────────────────────
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  const action = event.action;
-  const data   = event.notification.data || {};
-  const url    = action === 'reject' ? '/vecino.html' : (data.url || '/vecino.html?contestar=true');
-
-  event.waitUntil(
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/portero-virtual/vecino.html';
+  e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      for (const client of list) {
-        if (client.url.includes('vecino') && 'focus' in client) {
-          client.focus();
-          client.navigate(url);
-          return;
-        }
+      for (const c of list) {
+        if (c.url.includes('vecino') && 'focus' in c) return c.focus();
       }
       return clients.openWindow(url);
     })
   );
-
-  if (action === 'reject' && data.room) {
-    clients.matchAll({ type: 'window' }).then(list => {
-      list.forEach(c => c.postMessage({ type: 'reject-from-notification', room: data.room }));
-    });
-  }
 });
