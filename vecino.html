@@ -529,6 +529,23 @@
   </div>
 </div>
 
+
+<!-- ══ PANTALLA: ACTIVACIÓN EXITOSA ══ -->
+<div id="screen-success" style="display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:32px 24px">
+  <div class="setup-card" style="text-align:center">
+    <div style="font-size:56px;margin-bottom:16px">✅</div>
+    <div style="font-size:22px;font-weight:700;margin-bottom:8px">¡Portero activado!</div>
+    <div style="font-size:15px;color:var(--muted);margin-bottom:6px" id="success-building">—</div>
+    <div style="font-size:28px;font-weight:700;color:var(--green);margin-bottom:20px" id="success-floor">—</div>
+    <div style="background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-bottom:24px;font-size:13px;color:var(--green);line-height:1.6">
+      Recibirás una notificación cada vez que alguien llame al portal, aunque tengas el móvil bloqueado.
+    </div>
+    <button class="btn-activate" onclick="goToStandby()">
+      Entendido, activar portero
+    </button>
+  </div>
+</div>
+
 <!-- ══ STANDBY ══ -->
 <div id="screen-standby">
   <div class="building-pill" id="standby-building-pill">
@@ -706,6 +723,8 @@ const STUN_SERVERS = [
 let ws, pc, micStream;
 let myRoom = '';
 let myPortalId = '';
+let myFloorId = '';
+let myFloorId = '';
 let portalInfo = null;
 let muted = false;
 let timerInterval, timerSeconds = 0;
@@ -714,6 +733,7 @@ let callStartTime = null;
 // Leer portal_id de la URL (si el vecino accede con un enlace de su comunidad)
 const urlParams  = new URLSearchParams(location.search);
 const urlPortal  = urlParams.get('portal') || '';
+const urlFloorId = urlParams.get('floor')  || '';
 const urlContest = urlParams.get('contestar') === 'true';
 
 
@@ -792,7 +812,7 @@ function goToSetup() {
 }
 
 function showAllScreens(id) {
-  ['screen-install','screen-setup','screen-confirm','screen-standby','screen-incoming','screen-call'].forEach(s => {
+  ['screen-install','screen-setup','screen-confirm','screen-success','screen-standby','screen-incoming','screen-call'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.style.display = s === id ? 'flex' : 'none';
   });
@@ -869,15 +889,19 @@ async function activate() {
   const floor  = document.getElementById('sel-floor').value;
   const letter = document.getElementById('sel-letter').value;
 
-  // Usar portal de la URL o el seleccionado
-  myPortalId = urlPortal || document.getElementById('sel-portal').value || 'demo';
-  myRoom = `${myPortalId}-${floor}-${letter}`;
+  // Usar portal y floor de la URL (enlace del panel)
+  myPortalId = urlPortal  || 'demo';
+  myFloorId  = urlFloorId || '';
+  const floorLabel = floor + 'º ' + letter;
+  myRoom = myFloorId ? `${myPortalId}-${myFloorId}` : `${myPortalId}-${floor}-${letter}`;
 
-  // Guardar en localStorage para recuperar si llega push
-  localStorage.setItem('portero-room',   myRoom);
-  localStorage.setItem('portero-portal', myPortalId);
-  localStorage.setItem('portero-floor',  floor);
-  localStorage.setItem('portero-letter', letter);
+  // Guardar en localStorage
+  localStorage.setItem('portero-room',    myRoom);
+  localStorage.setItem('portero-portal',  myPortalId);
+  localStorage.setItem('portero-floor',   floor);
+  localStorage.setItem('portero-letter',  letter);
+  localStorage.setItem('portero-floorId', myFloorId);
+  localStorage.setItem('portero-label',   floorLabel);
 
   // Pedir micrófono
   try {
@@ -890,23 +914,33 @@ async function activate() {
   // Cargar datos del portal
   const info = await loadPortalInfo(myPortalId);
 
-  // Actualizar pantalla standby
-  const floorLabel = floor + 'º ' + letter;
-  document.getElementById('standby-floor-label').textContent  = floor + 'º ' + letter;
-  document.getElementById('standby-name-label').textContent   = info ? info.name    : myPortalId;
-  document.getElementById('standby-address-label').textContent = info ? info.address : '';
-  document.getElementById('standby-building-pill-text').textContent = info ? info.name : myPortalId;
-  document.getElementById('call-floor-label').textContent   = floorLabel;
-  document.getElementById('call-building-label').textContent = info ? info.name + ' · ' + info.address : '';
-  document.getElementById('inc-building').textContent = info ? info.name : '';
+  // Actualizar standby y llamada
+  document.getElementById('standby-floor-label').textContent        = floorLabel;
+  document.getElementById('standby-name-label').textContent         = info ? info.name    : myPortalId;
+  document.getElementById('standby-address-label').textContent      = info ? info.address : '';
+  document.getElementById('standby-building-pill-text').textContent = info ? info.name    : myPortalId;
+  document.getElementById('call-floor-label').textContent           = floorLabel;
+  document.getElementById('call-building-label').textContent        = info ? info.name + ' · ' + info.address : '';
+  document.getElementById('inc-building').textContent = info ? info.name    : '';
   document.getElementById('inc-address').textContent  = info ? info.address : '';
 
-  // Push
-  document.getElementById('install-banner').style.display = 'block';
   loadSchedule();
   await setupPush();
 
-  show('screen-standby');
+  // Mostrar pantalla de confirmación de activación
+  showActivationSuccess(floorLabel, info);
+}
+
+
+// ── Pantalla de éxito tras activar ───────────────────────
+function showActivationSuccess(floorLabel, info) {
+  document.getElementById('success-floor').textContent    = floorLabel;
+  document.getElementById('success-building').textContent = info ? info.name + ' · ' + info.address : '';
+  showAllScreens('screen-success');
+}
+
+function goToStandby() {
+  showAllScreens('screen-standby');
   connectWS();
 }
 
@@ -934,11 +968,13 @@ async function setupPush() {
       applicationServerKey: urlBase64ToUint8Array(key)
     });
 
+    const savedFloorId = localStorage.getItem('portero-floorId') || '';
     await fetch(`${API_BASE}/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         portalId:    myPortalId,
+        floorId:     savedFloorId,
         floorNumber: localStorage.getItem('portero-floor'),
         floorLetter: localStorage.getItem('portero-letter'),
         subscription: sub
