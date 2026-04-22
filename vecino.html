@@ -391,11 +391,6 @@
 <audio id="visitor-audio" autoplay playsinline></audio>
 
 
-<!-- ══ PANTALLA CARGA INICIAL ══ -->
-<div id="screen-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:100dvh">
-  <div style="width:32px;height:32px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite"></div>
-</div>
-
 <!-- ══ PANTALLA 0: INSTALACIÓN OBLIGATORIA ══ -->
 <div id="screen-install" style="display:none">
   <div class="install-card">
@@ -825,7 +820,7 @@ function goToSetup() {
 }
 
 function showAllScreens(id) {
-  ['screen-loading','screen-install','screen-setup','screen-confirm','screen-success','screen-standby','screen-incoming','screen-call'].forEach(s => {
+  ['screen-install','screen-setup','screen-confirm','screen-success','screen-standby','screen-incoming','screen-call'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.style.display = s === id ? 'flex' : 'none';
   });
@@ -836,13 +831,10 @@ function showScreen(id) {
 }
 
 // ── Inicialización ────────────────────────────────────────
-async function initApp() {
+function initApp() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  // Cargar info del portal si hay portal disponible
-  if (urlPortal) await loadPortalInfo(urlPortal);
-
-  // Detección de modo standalone con todos los métodos posibles
+  // Detección instantánea — sin await, sin esperar al servidor
   const standalone    = window.matchMedia('(display-mode: standalone)').matches;
   const iosStandalone = window.navigator.standalone === true;
   const fullscreen    = window.matchMedia('(display-mode: fullscreen)').matches;
@@ -850,14 +842,18 @@ async function initApp() {
   const userConfirmed = localStorage.getItem('portero-installed') === '1';
   const isInstalled   = standalone || iosStandalone || fullscreen || minimalUI || userConfirmed;
 
-  // Si está instalada → ir al setup siempre
   if (isInstalled || urlContest) {
+    // Mostrar setup inmediatamente
     showAllScreens('screen-setup');
+    // Cargar nombre del edificio en segundo plano sin bloquear
+    if (urlPortal) loadPortalInfo(urlPortal);
     return;
   }
 
-  // Mostrar pantalla de instalación
+  // Mostrar pantalla de instalación inmediatamente
   showAllScreens('screen-install');
+  // Cargar info en segundo plano igualmente (por si acaso)
+  if (urlPortal) loadPortalInfo(urlPortal);
 
   if (isIOS) {
     showInstallSection('ios');
