@@ -1,746 +1,1964 @@
-require('dotenv').config();
-const express   = require('express');
-const http      = require('http');
-const WebSocket = require('ws');
-const webpush   = require('web-push');
-const { Pool }  = require('pg');
-const bcrypt    = require('bcryptjs');
-const jwt       = require('jsonwebtoken');
-const cors      = require('cors');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel — Portero Virtual</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
-// ─── App & DB ─────────────────────────────────────────────────────────────────
-const app    = express();
-const server = http.createServer(app);
-const wss    = new WebSocket.Server({ server });
-
-// ✅ FIX: Railway interno NO necesita SSL — forzarlo causa crash en initDB
-const dbUrl = process.env.DATABASE_URL || '';
-const pool  = new Pool({
-  connectionString: dbUrl,
-  ssl: dbUrl.includes('railway.internal') || dbUrl.includes('localhost')
-    ? false
-    : { rejectUnauthorized: false }
-});
-
-app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
-app.options("*", cors());
-app.use(express.json());
-
-// ─── VAPID ───────────────────────────────────────────────────────────────────
-try {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL,
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-} catch (e) {
-  console.warn('⚠️  VAPID no configurado:', e.message);
+:root {
+  --bg: #f5f5f3;
+  --surface: #ffffff;
+  --surface2: #f9f9f7;
+  --border: rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text: #1a1a1a;
+  --muted: #888;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --sidebar-w: 240px;
 }
 
-// ─── JWT ──────────────────────────────────────────────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || 'portero-secret-fallback';
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-function signToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-function authMiddleware(req, res, next) {
-  const h     = req.headers.authorization || '';
-  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'No autenticado' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Token inválido' });
-  }
+/* ── LOGIN ── */
+#screen-login {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
 }
 
-// ─── DB init ──────────────────────────────────────────────────────────────────
-async function initDB() {
-  const queries = [
-    `CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      name TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS portals (
-      id TEXT PRIMARY KEY,
-      user_id INT REFERENCES users(id),
-      name TEXT NOT NULL,
-      address TEXT,
-      city TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS floors (
-      id TEXT PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      unit_label TEXT,
-      number INT,
-      letter TEXT,
-      push_subscription JSONB,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS call_log (
-      id SERIAL PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      floor_id TEXT,
-      floor_label TEXT,
-      started_at TIMESTAMPTZ DEFAULT NOW(),
-      answered BOOLEAN DEFAULT FALSE,
-      duration_seconds INT
-    )`,
-    `CREATE TABLE IF NOT EXISTS notices (
-      id SERIAL PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      user_id INT REFERENCES users(id),
-      type TEXT,
-      title TEXT,
-      body TEXT,
-      sent_at TIMESTAMPTZ DEFAULT NOW(),
-      recipients INT DEFAULT 0
-    )`
-  ];
-
-  for (const q of queries) {
-    await pool.query(q);
-  }
-
-  // Migraciones seguras — ignorar errores si ya están aplicadas
-  const migrations = [
-    // floors: columnas legacy opcionales
-    `ALTER TABLE floors ALTER COLUMN number DROP NOT NULL`,
-    `ALTER TABLE floors ALTER COLUMN letter DROP NOT NULL`,
-    `ALTER TABLE floors ALTER COLUMN unit_label DROP NOT NULL`,
-    // portals: añadir created_at si no existe (tabla creada por versión anterior)
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`,
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`,
-    // users: añadir created_at si no existe
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-    // users: algunos servidores anteriores usaban "password" en vez de "password_hash"
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`,
-    // call_log y notices: añadir si faltan columnas
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT`,
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
-    `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
-    // portals: user_id puede no existir si el schema original era diferente
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
-    // ✅ CRÍTICO: floors no tiene push_subscription ni created_at en el schema real
-    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS push_subscription JSONB`,
-    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`
-  ];
-  for (const m of migrations) {
-    await pool.query(m).catch(e => console.warn('[migration skip]', e.message));
-  }
-
-  // Si la tabla users tiene columna "password" pero no "password_hash" rellena,
-  // copiar los hashes para no perder acceso
-  await pool.query(`
-    UPDATE users SET password_hash = password
-    WHERE password_hash IS NULL AND password IS NOT NULL
-  `).catch(() => {});
-
-  console.log('✅ DB lista');
+.login-card {
+  width: 100%; max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function genId(len = 16) {
-  const chars = 'abcdef0123456789';
-  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+.login-logo {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 32px;
+}
+.login-logo-icon {
+  width: 40px; height: 40px; background: var(--accent);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+}
+.login-logo-text { font-size: 18px; font-weight: 600; }
+.login-logo-sub { font-size: 12px; color: var(--muted); }
+
+.login-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+.login-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.field input {
+  width: 100%; padding: 11px 14px;
+  border: 1px solid var(--border2); border-radius: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  background: var(--surface2); color: var(--text);
+  transition: border-color 0.2s;
+}
+.field input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+.btn-primary {
+  width: 100%; padding: 12px;
+  background: var(--accent); color: white;
+  border: none; border-radius: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-primary:hover { background: #4338ca; }
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled { background: #c7d2fe; cursor: not-allowed; }
+
+.login-error {
+  margin-top: 12px; padding: 10px 14px;
+  background: var(--red-light); color: var(--red);
+  border-radius: 8px; font-size: 13px; display: none;
 }
 
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
-app.post('/api/auth/register', async (req, res) => {
-  const { email, password, name } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    const r = await pool.query(
-      'INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id, email, name',
-      [email.toLowerCase().trim(), hash, name || '']
-    );
-    res.json({ token: signToken({ id: r.rows[0].id, email: r.rows[0].email }), user: r.rows[0] });
-  } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Email ya registrado' });
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
+.login-register {
+  text-align: center; margin-top: 20px;
+  font-size: 13px; color: var(--muted);
+}
+.login-register a { color: var(--accent); cursor: pointer; text-decoration: none; font-weight: 500; }
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
-  try {
-    const r = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
-    const user = r.rows[0];
-    if (!user) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    if (!user.password_hash) { return res.status(500).json({ error: "password_hash column missing — contacta al admin" }); }
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    res.json({
-      token: signToken({ id: user.id, email: user.email }),
-      user: { id: user.id, email: user.email, name: user.name }
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
+/* ── APP LAYOUT ── */
+#screen-app { display: none; min-height: 100vh; }
 
-app.put('/api/auth/profile', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('UPDATE users SET name = $1 WHERE id = $2', [req.body.name, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+.layout { display: flex; min-height: 100vh; }
 
-app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  try {
-    const r = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    const ok = await bcrypt.compare(currentPassword, r.rows[0].password_hash);
-    if (!ok) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
-    const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── PORTALES ─────────────────────────────────────────────────────────────────
-app.get('/api/portals', authMiddleware, async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT p.id, p.name, p.address, p.city, p.active, p.user_id, p.created_at,
-              COUNT(f.id) AS floor_count,
-              COUNT(CASE WHEN f.push_subscription IS NOT NULL THEN 1 END) AS active_neighbors
-       FROM portals p
-       LEFT JOIN floors f ON f.portal_id = p.id
-       WHERE p.user_id = $1
-       GROUP BY p.id
-       ORDER BY p.created_at DESC`,
-      [req.user.id]
-    );
-    res.json(r.rows);
-  } catch (e) { console.error('GET /api/portals:', e.message); res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals', authMiddleware, async (req, res) => {
-  const { name, address, city } = req.body;
-  if (!name) return res.status(400).json({ error: 'name requerido' });
-  try {
-    const id = genId(16);
-    const r = await pool.query(
-      'INSERT INTO portals (id, user_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,true) RETURNING *',
-      [id, req.user.id, name, address || '', city || '']
-    );
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/portals/:id', authMiddleware, async (req, res) => {
-  const { name, address, city } = req.body;
-  try {
-    const r = await pool.query(
-      'UPDATE portals SET name=$1, address=$2, city=$3 WHERE id=$4 AND user_id=$5 RETURNING *',
-      [name, address || '', city || '', req.params.id, req.user.id]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/portals/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM portals WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── PORTAL PÚBLICO ───────────────────────────────────────────────────────────
-app.get('/api/portal/:portalId/public', async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id, name, address, city FROM portals WHERE id = $1',
-      [req.params.portalId]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    const portal = pr.rows[0];
-
-    const fr = await pool.query(
-      `SELECT id, unit_label, number, letter
-       FROM floors WHERE portal_id = $1
-       ORDER BY unit_label ASC`,
-      [req.params.portalId]
-    );
-    portal.floors = fr.rows.map(f => ({
-      id:    f.id,
-      label: f.unit_label || `${f.number || ''}${f.letter || ''}`
-    }));
-    res.json(portal);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── VIVIENDAS ────────────────────────────────────────────────────────────────
-app.get('/api/portals/:id/floors', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const r = await pool.query(
-      `SELECT id, unit_label, number, letter, resident_name,
-              push_subscription IS NOT NULL AS installed,
-              push_subscription,
-              created_at
-       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC NULLS LAST, number ASC NULLS LAST`,
-      [req.params.id]
-    );
-    res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals/:id/floors', authMiddleware, async (req, res) => {
-  const { unit_label, number, letter } = req.body;
-  if (!unit_label) return res.status(400).json({ error: 'unit_label requerido' });
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const floorId = genId(16);
-    const r = await pool.query(
-      'INSERT INTO floors (id, portal_id, unit_label, number, letter) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [floorId, req.params.id, unit_label, number || null, letter || null]
-    );
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
-  const { unit_label } = req.body;
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const r = await pool.query(
-      'UPDATE floors SET unit_label=$1 WHERE id=$2 AND portal_id=$3 RETURNING *',
-      [unit_label, req.params.floorId, req.params.portalId]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Vivienda no encontrada' });
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    await pool.query(
-      'DELETE FROM floors WHERE id=$1 AND portal_id=$2',
-      [req.params.floorId, req.params.portalId]
-    );
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals/:portalId/floors/:floorId/reset', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    await pool.query(
-      'UPDATE floors SET push_subscription = NULL WHERE id=$1 AND portal_id=$2',
-      [req.params.floorId, req.params.portalId]
-    );
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── VAPID PUBLIC KEY ─────────────────────────────────────────────────────────
-app.get('/api/vapid-public-key', (req, res) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
-});
-
-// ─── SUBSCRIBE ────────────────────────────────────────────────────────────────
-// ✅ FIX: busca por floorId primero (nuevo), fallback a floorNumber/floorLetter (legacy)
-app.post('/api/subscribe', async (req, res) => {
-  const { portalId, floorId, floorNumber, floorLetter, subscription } = req.body;
-
-  if (!portalId || !subscription) {
-    return res.status(400).json({ error: 'portalId y subscription son obligatorios' });
-  }
-
-  try {
-    let floor;
-
-    if (floorId) {
-      const r = await pool.query(
-        'SELECT id FROM floors WHERE id = $1 AND portal_id = $2',
-        [floorId, portalId]
-      );
-      floor = r.rows[0];
-    }
-
-    if (!floor && (floorNumber !== undefined && floorNumber !== null && floorNumber !== '')) {
-      const r = await pool.query(
-        `SELECT id FROM floors
-         WHERE portal_id = $1 AND number = $2
-           AND (letter = $3 OR letter IS NULL OR letter = '')`,
-        [portalId, floorNumber, floorLetter || '']
-      );
-      floor = r.rows[0];
-    }
-
-    if (!floor) {
-      return res.status(404).json({
-        error: 'Vivienda no encontrada',
-        debug: { floorId, floorNumber, floorLetter, portalId }
-      });
-    }
-
-    await pool.query(
-      'UPDATE floors SET push_subscription = $1 WHERE id = $2',
-      [JSON.stringify(subscription), floor.id]
-    );
-
-    console.log(`✅ Push registrado — floor ${floor.id} (portal ${portalId})`);
-    res.json({ ok: true, floorId: floor.id });
-
-  } catch (e) {
-    console.error('subscribe error:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── AVISOS PUSH ──────────────────────────────────────────────────────────────
-app.post('/api/portals/:id/notify', authMiddleware, async (req, res) => {
-  const { title, body, type, floorIds } = req.body;
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    let query  = 'SELECT id, push_subscription FROM floors WHERE portal_id = $1 AND push_subscription IS NOT NULL';
-    const params = [req.params.id];
-    if (floorIds && floorIds.length > 0) {
-      query += ` AND id = ANY($2::text[])`;
-      params.push(floorIds);
-    }
-
-    const r = await pool.query(query, params);
-    let sent = 0;
-    const payload = JSON.stringify({ title: title || 'Aviso del portal', body: body || '', type: type || 'info' });
-
-    for (const f of r.rows) {
-      try {
-        const sub = typeof f.push_subscription === 'string'
-          ? JSON.parse(f.push_subscription)
-          : f.push_subscription;
-        await webpush.sendNotification(sub, payload);
-        sent++;
-      } catch (e) {
-        console.warn(`Push failed floor ${f.id}:`, e.statusCode || e.message);
-        if (e.statusCode === 410) {
-          await pool.query('UPDATE floors SET push_subscription = NULL WHERE id = $1', [f.id]);
-        }
-      }
-    }
-
-    await pool.query(
-      'INSERT INTO notices (portal_id, user_id, type, title, body, recipients) VALUES ($1,$2,$3,$4,$5,$6)',
-      [req.params.id, req.user.id, type || 'info', title, body, sent]
-    );
-    res.json({ ok: true, sent, total: r.rows.length });
-  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/portals/:id/notices', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    const r = await pool.query(
-      'SELECT * FROM notices WHERE portal_id=$1 ORDER BY sent_at DESC LIMIT 50',
-      [req.params.id]
-    );
-    res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── ESTADÍSTICAS ─────────────────────────────────────────────────────────────
-app.get('/api/portals/:id/stats', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const [tf, ins, tc, rc] = await Promise.all([
-      pool.query('SELECT COUNT(*) FROM floors WHERE portal_id=$1', [req.params.id]),
-      pool.query('SELECT COUNT(*) FROM floors WHERE portal_id=$1 AND push_subscription IS NOT NULL', [req.params.id]),
-      pool.query('SELECT COUNT(*) FROM call_log WHERE portal_id=$1', [req.params.id]),
-      pool.query(
-        `SELECT cl.*, f.unit_label as floor_label
-         FROM call_log cl
-         LEFT JOIN floors f ON f.id = cl.floor_id
-         WHERE cl.portal_id=$1
-         ORDER BY cl.started_at DESC LIMIT 20`,
-        [req.params.id]
-      )
-    ]);
-
-    res.json({
-      totalFloors:     parseInt(tf.rows[0].count),
-      installedFloors: parseInt(ins.rows[0].count),
-      totalCalls:      parseInt(tc.rows[0].count),
-      recentCalls:     rc.rows
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── WEBSOCKET ────────────────────────────────────────────────────────────────
-const rooms = new Map();
-
-function getRoomClients(room) {
-  if (!rooms.has(room)) rooms.set(room, new Set());
-  return rooms.get(room);
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w); background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; bottom: 0;
+  z-index: 100;
 }
 
-function broadcast(room, data, exclude = null) {
-  if (!room) return;
-  const clients = getRoomClients(room);
-  const msg = JSON.stringify(data);
-  for (const ws of clients) {
-    if (ws !== exclude && ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
-    }
-  }
+.sidebar-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-logo-icon {
+  width: 32px; height: 32px; background: var(--accent);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-logo-text { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.sidebar-logo-sub { font-size: 11px; color: var(--muted); }
+
+.sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+
+.nav-section-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 0 10px; margin: 16px 0 6px;
+}
+.nav-section-label:first-child { margin-top: 4px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px;
+  cursor: pointer; color: var(--muted);
+  font-size: 14px; font-weight: 500;
+  transition: all 0.15s; margin-bottom: 2px;
+  text-decoration: none;
+}
+.nav-item:hover { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--accent-light); color: var(--accent); }
+.nav-item svg { flex-shrink: 0; }
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: 8px; cursor: pointer;
+  transition: background 0.15s;
+}
+.sidebar-user:hover { background: var(--bg); }
+.sidebar-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent-light); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; flex-shrink: 0;
+}
+.sidebar-user-name { font-size: 13px; font-weight: 500; }
+.sidebar-user-email { font-size: 11px; color: var(--muted); }
+
+/* Main content */
+.main-content {
+  margin-left: var(--sidebar-w);
+  flex: 1; display: flex; flex-direction: column; min-height: 100vh;
 }
 
-wss.on('connection', (ws) => {
-  ws.room     = null;
-  ws.role     = null;
-  ws.portalId = null;
-  ws.floorId  = null;
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 28px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 16px; font-weight: 600; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
 
-  ws.on('message', async (raw) => {
-    let data;
-    try { data = JSON.parse(raw); } catch { return; }
+.page { padding: 28px; flex: 1; display: none; }
+.page.active { display: block; }
 
-    switch (data.type) {
+/* ── COMPONENTS ── */
 
-      case 'join': {
-        const { room, role, portalId, floorId, floorLabel } = data;
-        if (!room) return;
+/* Stats row */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px;
+}
+.stat-label { font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+.stat-sub { font-size: 12px; color: var(--muted); }
+.stat-green .stat-value { color: var(--green); }
+.stat-amber .stat-value { color: var(--amber); }
+.stat-accent .stat-value { color: var(--accent); }
 
-        // Salir de sala anterior
-        if (ws.room) {
-          const prev = getRoomClients(ws.room);
-          prev.delete(ws);
-          if (prev.size === 0) rooms.delete(ws.room);
-        }
+/* Cards */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; margin-bottom: 20px;
+}
+.card-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: 15px; font-weight: 600; }
+.card-body { padding: 20px; }
 
-        ws.room      = room;
-        ws.role      = role;
-        ws.portalId  = portalId;
-        ws.floorId   = floorId;
-        ws.floorLabel = floorLabel;
+/* Buttons */
+.btn {
+  padding: 8px 14px; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px; border: none;
+}
+.btn-sm { padding: 6px 10px; font-size: 12px; border-radius: 6px; }
+.btn-accent { background: var(--accent); color: white; }
+.btn-accent:hover { background: #4338ca; }
+.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+.btn-outline:hover { background: var(--bg); }
+.btn-ghost { background: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--bg); color: var(--text); }
+.btn-danger { background: var(--red-light); color: var(--red); }
+.btn-danger:hover { background: #fee2e2; }
+.btn-green { background: var(--green-light); color: var(--green); }
+.btn-green:hover { background: #dcfce7; }
 
-        getRoomClients(room).add(ws);
-        console.log(`[WS] join → room:${room} role:${role}`);
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; padding: 10px 16px;
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+td {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 13px; vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg); }
 
-        if (role === 'visitor') {
-          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room }, ws);
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-amber { background: var(--amber-light); color: var(--amber); }
+.badge-gray { background: var(--bg); color: var(--muted); }
+.badge-accent { background: var(--accent-light); color: var(--accent); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-          // Log de llamada
-          try {
-            await pool.query(
-              'INSERT INTO call_log (portal_id, floor_id, floor_label) VALUES ($1,$2,$3)',
-              [portalId, floorId || null, floorLabel || '']
-            );
-          } catch (e) { console.warn('call_log:', e.message); }
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: none; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 16px;
+  width: 100%; max-width: 520px; max-height: 90vh;
+  overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  margin: 20px;
+}
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-title { font-size: 16px; font-weight: 600; }
+.modal-close {
+  width: 28px; height: 28px; border-radius: 6px; border: none;
+  background: var(--bg); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; color: var(--muted);
+  font-size: 18px; transition: all 0.15s;
+}
+.modal-close:hover { background: var(--border); color: var(--text); }
+.modal-body { padding: 20px 24px; }
+.modal-footer {
+  padding: 16px 24px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
 
-          // Push al vecino
-          if (portalId && floorId) {
-            try {
-              const fr = await pool.query(
-                'SELECT push_subscription, unit_label FROM floors WHERE id=$1 AND portal_id=$2',
-                [floorId, portalId]
-              );
-              const floor = fr.rows[0];
-              if (floor && floor.push_subscription) {
-                const sub = typeof floor.push_subscription === 'string'
-                  ? JSON.parse(floor.push_subscription)
-                  : floor.push_subscription;
-                const vecUrl = `https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=${portalId}&floor=${floorId}&contestar=true`;
-                await webpush.sendNotification(sub, JSON.stringify({
-                  title: '🔔 Visita en el portal',
-                  body:  `Alguien llama a ${floorLabel || floor.unit_label || ''}`,
-                  url:   vecUrl,
-                  portalId, floorId, room
-                })).catch(async (e) => {
-                  console.warn('push send:', e.statusCode);
-                  if (e.statusCode === 410) {
-                    await pool.query('UPDATE floors SET push_subscription = NULL WHERE id=$1', [floorId]);
-                  }
-                });
-              }
-            } catch (e) { console.warn('push lookup:', e.message); }
-          }
-        }
+/* Form elements */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border2); border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  background: var(--surface2); color: var(--text);
+  transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent); background: var(--surface);
+}
+.form-group textarea { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-        if (role === 'neighbor') {
-          broadcast(room, { type: 'neighbor-ready', room }, ws);
-        }
-        break;
-      }
+/* Notice types for announcements */
+.notice-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.notice-type-btn {
+  padding: 10px 8px; border-radius: 8px; border: 1.5px solid var(--border2);
+  cursor: pointer; text-align: center; font-size: 12px; font-weight: 500;
+  transition: all 0.15s; background: var(--surface2);
+}
+.notice-type-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+.notice-type-btn.selected { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.notice-type-icon { font-size: 20px; display: block; margin-bottom: 4px; }
 
-      case 'neighbor-ready':
-      case 'offer':
-      case 'answer':
-      case 'ice':
-      case 'busy':
-      case 'hangup':
-        broadcast(ws.room, data, ws);
-        break;
+/* Floor grid */
+.floor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.floor-item {
+  padding: 12px; border-radius: 10px; border: 1px solid var(--border2);
+  background: var(--surface2); position: relative;
+}
+.floor-item-id { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.floor-item-name { font-size: 11px; color: var(--muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.floor-item-actions { display: flex; gap: 4px; }
 
-      case 'chat':
-        broadcast(ws.room, { type: 'chat', message: data.message, from: ws.role }, ws);
-        break;
+/* QR preview */
+.qr-preview {
+  background: white; border: 1px solid var(--border2);
+  border-radius: 12px; padding: 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.qr-url { font-size: 11px; color: var(--muted); text-align: center; word-break: break-all; font-family: 'DM Mono', monospace; }
 
-      default:
-        console.warn('[WS] tipo desconocido:', data.type);
-    }
-  });
+/* Toast */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); max-width: 320px;
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.toast-success { background: var(--green); color: white; }
+.toast-error { background: var(--red); color: white; }
+.toast-info { background: var(--accent); color: white; }
 
-  ws.on('close', () => {
-    if (ws.room) {
-      const clients = getRoomClients(ws.room);
-      clients.delete(ws);
-      broadcast(ws.room, { type: 'hangup', reason: 'disconnect' });
-      if (clients.size === 0) rooms.delete(ws.room);
-    }
-  });
+/* Empty state */
+.empty-state { text-align: center; padding: 60px 20px; }
+.empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.empty-state-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
 
-  ws.on('error', (e) => console.error('[WS] error:', e.message));
-});
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab-btn { padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
+/* Progress bar */
+.progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.3s; }
 
-// ─── RESET CONTRASEÑA TEMPORAL (eliminar tras recuperar acceso) ───────────────
-// Uso: POST /reset-password  { email, newPassword, resetKey }
-// resetKey debe coincidir con RESET_KEY en env vars o con el valor hardcoded de abajo
-app.post('/reset-password', async (req, res) => {
-  const { email, newPassword, resetKey } = req.body;
-  const VALID_KEY = process.env.RESET_KEY || 'portero-reset-2026';
-  if (resetKey !== VALID_KEY) {
-    return res.status(403).json({ error: 'resetKey incorrecto' });
-  }
-  if (!email || !newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'email y newPassword (min 6 chars) requeridos' });
-  }
+/* Announcement preview */
+.announcement-preview {
+  border: 1px solid var(--border2); border-radius: 10px;
+  overflow: hidden; margin-top: 12px;
+}
+.announcement-preview-header { padding: 10px 14px; font-size: 12px; font-weight: 600; }
+.announcement-preview-body { padding: 10px 14px; font-size: 13px; }
+.preview-urgent { background: #fef2f2; color: #991b1b; }
+.preview-maintenance { background: #fffbeb; color: #92400e; }
+.preview-meeting { background: #eef2ff; color: #3730a3; }
+.preview-general { background: #f0fdf4; color: #14532d; }
+.preview-community { background: #fdf4ff; color: #6b21a8; }
+
+/* Responsive toggle for mobile */
+.menu-toggle { display: none; }
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .menu-toggle { display: flex; }
+}
+
+/* Spinner */
+.spinner { width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN
+══════════════════════════════════════ -->
+<div id="screen-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-logo-text">Portero Virtual</div>
+        <div class="login-logo-sub">Panel de administración</div>
+      </div>
+    </div>
+
+    <div id="login-form">
+      <div class="login-title">Iniciar sesión</div>
+      <div class="login-sub">Accede a tu panel de gestión</div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button class="btn-primary" onclick="doLogin()" id="login-btn">Entrar</button>
+      <div class="login-register" style="margin-top:8px">
+        <a href="#" onclick="openForgot();return false;" style="color:var(--accent);font-size:13px;text-decoration:none">¿Olvidaste tu contraseña?</a>
+      </div>
+      <div class="login-register">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
+    </div>
+
+    <div id="register-form" style="display:none">
+      <div class="login-title">Crear cuenta</div>
+      <div class="login-sub">Empieza a gestionar tus portales</div>
+      <div class="field">
+        <label>Nombre o empresa</label>
+        <input type="text" id="reg-name" placeholder="Administración García">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="tu@email.com">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="reg-password" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div class="login-error" id="reg-error"></div>
+      <button class="btn-primary" onclick="doRegister()" id="reg-btn">Crear cuenta</button>
+      <div class="login-register">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APP
+══════════════════════════════════════ -->
+<div id="screen-app">
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div>
+          <div class="sidebar-logo-text">Portero Virtual</div>
+          <div class="sidebar-logo-sub">Panel admin</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Principal</div>
+        <a class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Resumen
+        </a>
+        <a class="nav-item" onclick="showPage('portals')" id="nav-portals">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Mis portales
+        </a>
+        <a class="nav-item" onclick="showPage('announcements')" id="nav-announcements">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6zM1 1l22 4-22 4"/></svg>
+          Avisos a vecinos
+        </a>
+
+        <div class="nav-section-label">Actividad</div>
+        <a class="nav-item" onclick="showPage('calls')" id="nav-calls">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+          Historial llamadas
+        </a>
+
+        <div class="nav-section-label">Cuenta</div>
+        <a class="nav-item" onclick="showPage('account')" id="nav-account">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Mi cuenta
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="doLogout()">
+          <div class="sidebar-avatar" id="user-avatar">A</div>
+          <div>
+            <div class="sidebar-user-name" id="user-name">—</div>
+            <div class="sidebar-user-email">Cerrar sesión</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-content">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ghost menu-toggle" onclick="toggleSidebar()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="topbar-title" id="topbar-title">Resumen</div>
+        </div>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </div>
+
+      <!-- ── DASHBOARD ── -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-row" id="dash-stats">
+          <div class="stat-card"><div class="stat-label">Portales activos</div><div class="stat-value stat-accent" id="stat-portals">—</div><div class="stat-sub">en total</div></div>
+          <div class="stat-card"><div class="stat-label">Vecinos conectados</div><div class="stat-value" style="color:var(--green)" id="stat-neighbors">—</div><div class="stat-sub">con app instalada</div></div>
+          <div class="stat-card"><div class="stat-label">Llamadas este mes</div><div class="stat-value" id="stat-calls">—</div><div class="stat-sub" id="stat-calls-sub">—</div></div>
+          <div class="stat-card"><div class="stat-label">Avisos enviados</div><div class="stat-value" id="stat-notices">—</div><div class="stat-sub">este mes</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Estado de portales</div>
+            <button class="btn btn-accent btn-sm" onclick="showPage('portals')">Ver todos</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Portal</th><th>Dirección</th><th>Viviendas</th><th>Vecinos activos</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="dash-portals-table"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PORTALES ── -->
+      <div class="page" id="page-portals">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Mis portales</div>
+            <button class="btn btn-accent" onclick="openModalNewPortal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nuevo portal
+            </button>
+          </div>
+          <div id="portals-list" class="card-body">
+            <div style="text-align:center;color:var(--muted);padding:40px">Cargando portales...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DETALLE PORTAL ── -->
+      <div class="page" id="page-portal-detail">
+        <div style="margin-bottom:20px">
+          <button class="btn btn-ghost btn-sm" onclick="showPage('portals')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Volver a portales
+          </button>
+        </div>
+
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header">
+            <div>
+              <div class="card-title" id="detail-portal-name">—</div>
+              <div style="font-size:13px;color:var(--muted);margin-top:2px" id="detail-portal-address">—</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="openQRModal()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><path d="M3 17h2v4H3zM7 17h3M3 14h4"/></svg>
+                Ver QR
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="openEditPortalModal()">Editar portal</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--border)">
+            <div style="padding:16px 20px;border-right:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Viviendas</div>
+              <div style="font-size:24px;font-weight:600" id="detail-floor-count">—</div>
+            </div>
+            <div style="padding:16px 20px;border-right:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">App instalada</div>
+              <div style="font-size:24px;font-weight:600;color:var(--green)" id="detail-active-count">—</div>
+            </div>
+            <div style="padding:16px 20px">
+              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Pendientes</div>
+              <div style="font-size:24px;font-weight:600;color:var(--amber)" id="detail-pending-count">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="showTab('viviendas')">Viviendas</button>
+          <button class="tab-btn" onclick="showTab('avisos')">Enviar aviso</button>
+          <button class="tab-btn" onclick="showTab('llamadas')">Llamadas</button>
+        </div>
+
+        <!-- Tab: Viviendas -->
+        <div class="tab-panel active" id="tab-viviendas">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Viviendas del portal</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="openModalImportFloors()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Importar Excel
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="openModalGenerateFloors()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Generar por rangos
+                </button>
+                <button class="btn btn-accent btn-sm" onclick="openModalNewFloor()">Añadir vivienda</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Vivienda</th><th>Residente</th><th>Estado app</th><th>Enlace vecino</th><th>Acciones</th></tr></thead>
+                <tbody id="floors-table"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Cargando...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Avisos -->
+        <div class="tab-panel" id="tab-avisos">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Enviar aviso a vecinos</div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Tipo de aviso</label>
+                <div class="notice-type-grid">
+                  <div class="notice-type-btn selected" onclick="selectNoticeType(this,'urgent')" data-type="urgent">
+                    <span class="notice-type-icon">🚨</span>Urgente
+                  </div>
+                  <div class="notice-type-btn" onclick="selectNoticeType(this,'maintenance')" data-type="maintenance">
+                    <span class="notice-type-icon">🔧</span>Mantenimiento
+                  </div>
+                  <div class="notice-type-btn" onclick="selectNoticeType(this,'meeting')" data-type="meeting">
+                    <span class="notice-type-icon">📅</span>Convocatoria
+                  </div>
+                  <div class="notice-type-btn" onclick="selectNoticeType(this,'general')" data-type="general">
+                    <span class="notice-type-icon">📢</span>Aviso general
+                  </div>
+                  <div class="notice-type-btn" onclick="selectNoticeType(this,'community')" data-type="community">
+                    <span class="notice-type-icon">🎉</span>Comunidad
+                  </div>
+                  <div class="notice-type-btn" onclick="selectNoticeType(this,'water')" data-type="water">
+                    <span class="notice-type-icon">💧</span>Corte agua
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Plantillas rápidas</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px" id="templates-container"></div>
+              </div>
+
+              <div class="form-group">
+                <label>Título del aviso</label>
+                <input type="text" id="notice-title" placeholder="Ej: Corte de agua hoy">
+              </div>
+
+              <div class="form-group">
+                <label>Mensaje</label>
+                <textarea id="notice-body" placeholder="Escribe el mensaje para los vecinos..." rows="4"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label>Destinatarios</label>
+                <select id="notice-recipients">
+                  <option value="all">Todos los vecinos del portal</option>
+                  <option value="active">Solo los que tienen la app instalada</option>
+                </select>
+              </div>
+
+              <div id="notice-preview" class="announcement-preview" style="display:none">
+                <div class="announcement-preview-header preview-urgent" id="preview-header">🚨 Vista previa</div>
+                <div class="announcement-preview-body" id="preview-body">—</div>
+              </div>
+
+              <div style="display:flex;gap:10px;margin-top:16px">
+                <button class="btn btn-outline" onclick="previewNotice()">Vista previa</button>
+                <button class="btn btn-accent" onclick="sendNotice()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Enviar aviso
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Historial de avisos</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Título</th><th>Enviado a</th></tr></thead>
+                <tbody id="notices-history"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Sin avisos enviados</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Llamadas -->
+        <div class="tab-panel" id="tab-llamadas">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Historial de llamadas</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Fecha y hora</th><th>Vivienda</th><th>Estado</th><th>Duración</th></tr></thead>
+                <tbody id="calls-detail-table"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">Cargando...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AVISOS GLOBALES ── -->
+      <div class="page" id="page-announcements">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Enviar aviso a múltiples portales</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>Selecciona los portales destinatarios</label>
+              <div id="portal-checkboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px"></div>
+            </div>
+            <div class="form-group">
+              <label>Tipo de aviso</label>
+              <div class="notice-type-grid">
+                <div class="notice-type-btn selected" onclick="selectGlobalType(this,'urgent')" data-type="urgent"><span class="notice-type-icon">🚨</span>Urgente</div>
+                <div class="notice-type-btn" onclick="selectGlobalType(this,'maintenance')" data-type="maintenance"><span class="notice-type-icon">🔧</span>Mantenimiento</div>
+                <div class="notice-type-btn" onclick="selectGlobalType(this,'meeting')" data-type="meeting"><span class="notice-type-icon">📅</span>Convocatoria</div>
+                <div class="notice-type-btn" onclick="selectGlobalType(this,'general')" data-type="general"><span class="notice-type-icon">📢</span>Aviso general</div>
+                <div class="notice-type-btn" onclick="selectGlobalType(this,'community')" data-type="community"><span class="notice-type-icon">🎉</span>Comunidad</div>
+                <div class="notice-type-btn" onclick="selectGlobalType(this,'water')" data-type="water"><span class="notice-type-icon">💧</span>Corte agua</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Título</label>
+              <input type="text" id="global-notice-title" placeholder="Ej: Reunión de comunidad">
+            </div>
+            <div class="form-group">
+              <label>Mensaje</label>
+              <textarea id="global-notice-body" placeholder="Escribe el mensaje..." rows="4"></textarea>
+            </div>
+            <button class="btn btn-accent" onclick="sendGlobalNotice()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Enviar a portales seleccionados
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LLAMADAS ── -->
+      <div class="page" id="page-calls">
+        <div class="stats-row" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat-card"><div class="stat-label">Total llamadas (mes)</div><div class="stat-value" id="calls-total">—</div></div>
+          <div class="stat-card"><div class="stat-label">Contestadas</div><div class="stat-value" style="color:var(--green)" id="calls-answered">—</div></div>
+          <div class="stat-card"><div class="stat-label">Sin respuesta</div><div class="stat-value" style="color:var(--amber)" id="calls-missed">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Historial de llamadas</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha y hora</th><th>Portal</th><th>Vivienda</th><th>Estado</th><th>Duración</th></tr></thead>
+              <tbody id="all-calls-table"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CUENTA ── -->
+      <div class="page" id="page-account">
+        <div style="max-width:500px">
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><div class="card-title">Datos de la cuenta</div></div>
+            <div class="card-body">
+              <div class="form-group"><label>Nombre</label><input type="text" id="acc-name" placeholder="Tu nombre"></div>
+              <div class="form-group"><label>Email</label><input type="email" id="acc-email" placeholder="tu@email.com" disabled style="opacity:0.6"></div>
+              <button class="btn btn-accent" onclick="saveAccount()">Guardar cambios</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Cambiar contraseña</div></div>
+            <div class="card-body">
+              <div class="form-group"><label>Contraseña actual</label><input type="password" id="acc-pwd-current" placeholder="••••••••"></div>
+              <div class="form-group"><label>Nueva contraseña</label><input type="password" id="acc-pwd-new" placeholder="Mínimo 8 caracteres"></div>
+              <button class="btn btn-accent" onclick="changePassword()">Cambiar contraseña</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /layout -->
+</div><!-- /screen-app -->
+
+<!-- ══════════════════════════════════════
+     MODALS
+══════════════════════════════════════ -->
+
+<!-- Modal: Nuevo portal -->
+<div class="modal-overlay" id="modal-new-portal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="portal-modal-title">Nuevo portal</div>
+      <button class="modal-close" onclick="closeModal('modal-new-portal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-portal-id">
+      <div class="form-group"><label>Nombre del edificio o comunidad</label><input type="text" id="portal-name" placeholder="Ej: Residencial Los Olmos"></div>
+      <div class="form-group"><label>Dirección completa</label><input type="text" id="portal-address" placeholder="Ej: Calle Mayor 12"></div>
+      <div class="form-group"><label>Ciudad</label><input type="text" id="portal-city" placeholder="Ej: Madrid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-new-portal')">Cancelar</button>
+      <button class="btn btn-accent" onclick="savePortal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva vivienda -->
+<div class="modal-overlay" id="modal-new-floor">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Añadir vivienda</div>
+      <button class="modal-close" onclick="closeModal('modal-new-floor')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Identificador de la vivienda</label>
+        <input type="text" id="floor-id" placeholder="Ej: 3ºB, Esc E 3ºD, Bajo A, Ático...">
+        <div class="form-hint">Escribe libremente el identificador tal como aparecerá en el portero</div>
+      </div>
+      <div class="form-group">
+        <label>Nombre del residente (opcional)</label>
+        <input type="text" id="floor-resident" placeholder="Ej: Familia García">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-new-floor')">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveFloor()">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Generar por rangos -->
+<div class="modal-overlay" id="modal-generate-floors">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Generar viviendas por rangos</div>
+      <button class="modal-close" onclick="closeModal('modal-generate-floors')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Formato de numeración</label>
+        <select id="gen-format" onchange="updateGeneratePreview()">
+          <option value="num-letter">Número + Letra (1ºA, 2ºB...)</option>
+          <option value="esc-num-letter">Escalera + Número + Letra (Esc A 1ºB...)</option>
+          <option value="num-only">Solo número (1, 2, 3...)</option>
+          <option value="custom">Prefijo personalizado</option>
+        </select>
+      </div>
+      <div id="gen-escalera-wrap" class="form-group" style="display:none">
+        <label>Escaleras (separadas por coma)</label>
+        <input type="text" id="gen-escaleras" placeholder="Ej: A, B, C" oninput="updateGeneratePreview()">
+      </div>
+      <div id="gen-prefix-wrap" class="form-group" style="display:none">
+        <label>Prefijo</label>
+        <input type="text" id="gen-prefix" placeholder="Ej: Dpto." oninput="updateGeneratePreview()">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Piso inicial</label>
+          <input type="number" id="gen-floor-from" value="1" min="0" oninput="updateGeneratePreview()">
+        </div>
+        <div class="form-group">
+          <label>Piso final</label>
+          <input type="number" id="gen-floor-to" value="5" min="1" oninput="updateGeneratePreview()">
+        </div>
+      </div>
+      <div id="gen-letters-wrap" class="form-group">
+        <label>Letras / puertas (separadas por coma)</label>
+        <input type="text" id="gen-letters" value="A, B, C, D" oninput="updateGeneratePreview()">
+      </div>
+      <div class="form-group">
+        <label>Vista previa</label>
+        <div id="gen-preview" style="background:var(--bg);border-radius:8px;padding:12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted);max-height:120px;overflow-y:auto;line-height:1.8"></div>
+      </div>
+      <div style="font-size:13px;color:var(--accent);font-weight:500" id="gen-count"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-generate-floors')">Cancelar</button>
+      <button class="btn btn-accent" onclick="generateFloors()">Generar viviendas</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Importar Excel -->
+<div class="modal-overlay" id="modal-import-floors">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Importar viviendas desde Excel</div>
+      <button class="modal-close" onclick="closeModal('modal-import-floors')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--accent-light);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--accent)">
+        <strong>Formato del Excel:</strong> el archivo debe tener dos columnas.<br>
+        Columna A: identificador de la vivienda (Ej: 3ºB)<br>
+        Columna B: nombre del residente (opcional)
+      </div>
+      <div class="form-group">
+        <label>Archivo Excel (.xlsx o .csv)</label>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="previewImport(this)">
+      </div>
+      <div id="import-preview" style="display:none">
+        <div class="form-group">
+          <label>Vista previa (<span id="import-count">0</span> viviendas)</label>
+          <div id="import-preview-list" style="background:var(--bg);border-radius:8px;padding:12px;font-size:12px;font-family:'DM Mono',monospace;max-height:150px;overflow-y:auto;line-height:1.8"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-import-floors')">Cancelar</button>
+      <button class="btn btn-accent" onclick="importFloors()" id="import-btn" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: QR -->
+<div class="modal-overlay" id="modal-qr">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Código QR del portal</div>
+      <button class="modal-close" onclick="closeModal('modal-qr')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="qr-preview">
+        <div id="qr-canvas" style="display:flex;justify-content:center;align-items:center;min-height:200px"></div>
+        <div class="qr-url" id="qr-url-text">—</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-outline" style="flex:1" onclick="copyQRUrl()">Copiar URL</button>
+        <button class="btn btn-accent" style="flex:1" onclick="downloadQR()">Descargar QR</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted);text-align:center">
+        Imprime este QR y ponlo en el portal del edificio
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Enlace vecino -->
+<div class="modal-overlay" id="modal-neighbor-link">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Enlace para el vecino</div>
+      <button class="modal-close" onclick="closeModal('modal-neighbor-link')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--green-light);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--green)">
+        Envía este enlace al vecino por WhatsApp o email. Al abrirlo, verá directamente su vivienda asignada y solo tendrá que pulsar "Activar portero".
+      </div>
+      <div class="form-group">
+        <label>Vivienda</label>
+        <div id="neighbor-link-floor" style="font-size:16px;font-weight:600;padding:10px 0"></div>
+      </div>
+      <div class="form-group">
+        <label>Enlace de activación</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="neighbor-link-url" readonly style="font-size:12px;font-family:'DM Mono',monospace;background:var(--bg)">
+          <button class="btn btn-outline btn-sm" onclick="copyNeighborLink()" style="white-space:nowrap">Copiar</button>
+        </div>
+      </div>
+      <button class="btn btn-green" style="width:100%" onclick="shareNeighborLink()">
+        Compartir por WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ============================================================
+const API_BASE = 'https://merry-joy-production-4504.up.railway.app/api';
+const APP_URL  = 'https://danieletom007-gif.github.io/portero-virtual';
+// ============================================================
+
+let token = localStorage.getItem('admin-token') || '';
+let currentClient = JSON.parse(localStorage.getItem('admin-client') || 'null');
+let currentPortalId = '';
+let allPortals = [];
+let currentNoticeType = 'urgent';
+let currentGlobalType = 'urgent';
+let importData = [];
+
+// ── Auth ──────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('register-form').style.display = 'none';
+}
+function showRegister() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = 'block';
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) return showLoginError('Completa todos los campos');
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Entrando...';
+
   try {
-    // Buscar el usuario primero para dar error claro
-    const userCheck = await pool.query(
-      'SELECT id, email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))',
-      [email]
-    );
-    console.log(`[RESET] Buscando email: "${email}" — encontrado: ${userCheck.rows.length > 0}`);
-    if (userCheck.rows.length === 0) {
-      // Listar emails existentes en log para diagnóstico
-      const allEmails = await pool.query('SELECT email FROM users');
-      console.log(`[RESET] Emails en BD: ${allEmails.rows.map(r=>r.email).join(', ')}`);
-      return res.status(404).json({ error: 'Email no encontrado', hint: 'Revisa que el email sea exactamente el que usaste al registrarte' });
-    }
-    const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [hash, userCheck.rows[0].id]
-    );
-    console.log(`[RESET] ✅ Contraseña actualizada para ${userCheck.rows[0].email}`);
-    res.json({ ok: true, email: userCheck.rows[0].email, message: 'Contraseña actualizada.' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── Health ───────────────────────────────────────────────────────────────────
-app.get('/',       (req, res) => res.json({ status: 'ok', version: '2.3', time: new Date().toISOString() }));
-app.get('/health', (req, res) => res.json({ ok: true }));
-
-// ─── DEBUG schema (eliminar tras diagnosticar) ────────────────────────────────
-app.get('/debug/schema', async (req, res) => {
-  try {
-    const tables = ['users', 'portals', 'floors'];
-    const result = {};
-    for (const t of tables) {
-      const r = await pool.query(
-        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`,
-        [t]
-      );
-      result[t] = r.rows.map(x => x.column_name);
-    }
-    try {
-      await pool.query(`SELECT id, name, user_id FROM portals LIMIT 1`);
-      result._portals_user_id = 'OK';
-    } catch(e) {
-      result._portals_user_id = 'ERROR: ' + e.message;
-    }
-    // Test push_subscription en floors
-    try {
-      await pool.query(`SELECT push_subscription FROM floors LIMIT 1`);
-      result._floors_push_sub = 'OK';
-    } catch(e) {
-      result._floors_push_sub = 'ERROR: ' + e.message;
-    }
-    res.json(result);
+    const res  = await apiFetch('/auth/login', 'POST', { email, password }, false);
+    token = res.token;
+    currentClient = res.user;
+    localStorage.setItem('admin-token', token);
+    localStorage.setItem('admin-client', JSON.stringify(currentClient));
+    initApp();
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    showLoginError(e.message || 'Email o contraseña incorrectos');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+async function doRegister() {
+  const name     = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  if (!name || !email || !password) return showRegError('Completa todos los campos');
+  if (password.length < 8) return showRegError('La contraseña debe tener al menos 8 caracteres');
+
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = 'Creando cuenta...';
+
+  try {
+    const res = await apiFetch('/auth/register', 'POST', { name, email, password }, false);
+    token = res.token;
+    currentClient = res.user;
+    localStorage.setItem('admin-token', token);
+    localStorage.setItem('admin-client', JSON.stringify(currentClient));
+    initApp();
+  } catch(e) {
+    showRegError(e.message || 'No se pudo crear la cuenta');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear cuenta';
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('admin-token');
+  localStorage.removeItem('admin-client');
+  token = ''; currentClient = null;
+  document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('screen-app').style.display = 'none';
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function showRegError(msg) {
+  const el = document.getElementById('reg-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+// ── App init ──────────────────────────────────────────────
+function initApp() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-app').style.display = 'block';
+
+  const initials = (currentClient.name || 'A').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').textContent   = currentClient.name || currentClient.email;
+  document.getElementById('acc-name').value  = currentClient.name || '';
+  document.getElementById('acc-email').value = currentClient.email || '';
+
+  loadDashboard();
+}
+
+// ── Navigation ────────────────────────────────────────────
+const pageTitles = {
+  dashboard: 'Resumen', portals: 'Mis portales',
+  'portal-detail': '', announcements: 'Avisos a vecinos',
+  calls: 'Historial de llamadas', account: 'Mi cuenta'
+};
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pageEl = document.getElementById('page-' + page);
+  const navEl  = document.getElementById('nav-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  if (navEl)  navEl.classList.add('active');
+
+  document.getElementById('topbar-title').textContent = pageTitles[page] || '';
+  document.getElementById('topbar-actions').innerHTML = '';
+
+  if (page === 'dashboard')    loadDashboard();
+  if (page === 'portals')      loadPortals();
+  if (page === 'calls')        loadAllCalls();
+  if (page === 'announcements') loadAnnouncementPortals();
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['viviendas','avisos','llamadas'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'llamadas') loadPortalCalls();
+  if (tab === 'avisos')   loadNoticesHistory();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ── API helper ────────────────────────────────────────────
+async function apiFetch(path, method = 'GET', body = null, auth = true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (auth && token) headers['Authorization'] = 'Bearer ' + token;
+
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+
+  const res  = await fetch(API_BASE + path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error del servidor');
+  return data;
+}
+
+// ── Dashboard ─────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const portals = await apiFetch('/portals');
+    allPortals = portals;
+
+    document.getElementById('stat-portals').textContent = portals.length;
+
+    let totalNeighbors = 0, totalFloors = 0;
+    const tbody = document.getElementById('dash-portals-table');
+
+    if (!portals.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">
+        <div style="margin-bottom:12px">🏠</div>
+        Aún no tienes portales. <a onclick="showPage('portals')" style="color:var(--accent);cursor:pointer">Crea tu primer portal</a>
+      </td></tr>`;
+      document.getElementById('stat-neighbors').textContent = '0';
+      document.getElementById('stat-calls').textContent = '0';
+      document.getElementById('stat-notices').textContent = '0';
+      return;
+    }
+
+    tbody.innerHTML = portals.map(p => {
+      const active  = parseInt(p.active_neighbors || 0);
+      const floors  = parseInt(p.floor_count || 0);
+      const pending = floors - active;
+      totalNeighbors += active;
+      totalFloors    += floors;
+      const pct = floors > 0 ? Math.round(active/floors*100) : 0;
+      return `<tr>
+        <td><span style="font-weight:500">${p.name}</span></td>
+        <td style="color:var(--muted)">${p.address}${p.city ? ', '+p.city : ''}</td>
+        <td>${floors}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--green);font-weight:500">${active}</span>
+            <div style="flex:1;max-width:80px">
+              <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            </div>
+            <span style="color:var(--muted);font-size:12px">${pct}%</span>
+          </div>
+        </td>
+        <td><span class="badge ${active===floors&&floors>0?'badge-green':pending>0?'badge-amber':'badge-gray'}">
+          <span class="dot"></span>${active===floors&&floors>0?'Completo':pending>0?pending+' pendientes':'Sin viviendas'}
+        </span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="openPortalDetail('${p.id}')">Ver →</button></td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('stat-neighbors').textContent = totalNeighbors;
+    document.getElementById('stat-calls').textContent = '—';
+    document.getElementById('stat-notices').textContent = '—';
+
+  } catch(e) { toast('Error cargando datos', 'error'); }
+}
+
+// ── Portales ──────────────────────────────────────────────
+async function loadPortals() {
+  const container = document.getElementById('portals-list');
+  container.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner" style="margin:0 auto"></div></div>';
+
+  try {
+    const portals = await apiFetch('/portals');
+    allPortals = portals;
+
+    if (!portals.length) {
+      container.innerHTML = `<div class="empty-state">
+        <div class="empty-state-icon">🏠</div>
+        <div class="empty-state-title">Sin portales todavía</div>
+        <div class="empty-state-sub">Crea tu primer portal para empezar a gestionar tu comunidad</div>
+        <button class="btn btn-accent" onclick="openModalNewPortal()">Crear primer portal</button>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = portals.map(p => {
+      const active  = parseInt(p.active_neighbors || 0);
+      const floors  = parseInt(p.floor_count || 0);
+      const pct     = floors > 0 ? Math.round(active/floors*100) : 0;
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;background:var(--surface2)">
+        <div style="width:44px;height:44px;background:var(--accent-light);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:15px">${p.name}</div>
+          <div style="font-size:12px;color:var(--muted)">${p.address}${p.city?', '+p.city:''}</div>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+            <div class="progress-bar" style="width:120px"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span style="font-size:12px;color:var(--muted)">${active}/${floors} vecinos con app</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" onclick="openQRModalDirect('${p.id}','${p.name}')">QR</button>
+          <button class="btn btn-accent btn-sm" onclick="openPortalDetail('${p.id}')">Gestionar →</button>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) { toast('Error cargando portales', 'error'); }
+}
+
+// ── Portal detail ─────────────────────────────────────────
+async function openPortalDetail(portalId) {
+  currentPortalId = portalId;
+  showPage('portal-detail');
+
+  const portal = allPortals.find(p => p.id === portalId) || {};
+  document.getElementById('detail-portal-name').textContent    = portal.name    || '—';
+  document.getElementById('detail-portal-address').textContent = (portal.address || '') + (portal.city ? ', ' + portal.city : '');
+
+  loadFloors();
+  showTab('viviendas');
+  updateGeneratePreview();
+}
+
+async function loadFloors() {
+  const tbody = document.getElementById('floors-table');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+
+  try {
+    const floors = await apiFetch(`/portals/${currentPortalId}/floors`);
+    const active  = floors.filter(f => f.installed || f.has_push || f.push_subscription).length;
+    const pending = floors.length - active;
+
+    document.getElementById('detail-floor-count').textContent   = floors.length;
+    document.getElementById('detail-active-count').textContent  = active;
+    document.getElementById('detail-pending-count').textContent = pending;
+
+    if (!floors.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Sin viviendas. Añade la primera.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = floors.map(f => {
+      const label = f.unit_label || (f.number + (f.letter ? 'º ' + f.letter : ''));
+      const active = f.installed || f.has_push || !!f.push_subscription;
+      return `<tr>
+        <td><span style="font-weight:600">${label}</span></td>
+        <td style="color:var(--muted)">${f.resident_name || '—'}</td>
+        <td>
+          <span class="badge ${active ? 'badge-green' : 'badge-amber'}">
+            <span class="dot"></span>${active ? 'App instalada' : 'Pendiente'}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-green btn-sm" onclick="openNeighborLink('${f.id}','${label}')">
+            Enviar enlace
+          </button>
+        </td>
+        <td style="display:flex;gap:4px">
+          ${active ? `<button class="btn btn-outline btn-sm" onclick="resetFloor('${f.id}','${label}')">Resetear</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteFloor('${f.id}','${label}')">Eliminar</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) { toast('Error cargando viviendas', 'error'); }
+}
+
+// ── Floor actions ─────────────────────────────────────────
+function openModalNewFloor() {
+  document.getElementById('floor-id').value = '';
+  document.getElementById('floor-resident').value = '';
+  openModal('modal-new-floor');
+}
+
+async function saveFloor() {
+  const unitLabel   = document.getElementById('floor-id').value.trim();
+  const residentName = document.getElementById('floor-resident').value.trim();
+  if (!unitLabel) return toast('Escribe el identificador de la vivienda', 'error');
+
+  try {
+    await apiFetch(`/portals/${currentPortalId}/floors`, 'POST', {
+      unit_label: unitLabel,
+      resident_name: residentName
+    });
+    closeModal('modal-new-floor');
+    loadFloors();
+    toast('Vivienda añadida');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteFloor(floorId, label) {
+  if (!confirm(`¿Eliminar la vivienda "${label}"? Esta acción no se puede deshacer.`)) return;
+  try {
+    await apiFetch(`/portals/${currentPortalId}/floors/${floorId}`, 'DELETE');
+    loadFloors();
+    toast('Vivienda eliminada');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function resetFloor(floorId, label) {
+  if (!confirm(`¿Resetear la vivienda "${label}"? El vecino actual perderá el acceso y habrá que enviarle un nuevo enlace.`)) return;
+  try {
+    await apiFetch(`/portals/${currentPortalId}/floors/${floorId}/reset`, 'POST');
+    loadFloors();
+    toast('Vivienda reseteada correctamente');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Generar por rangos ────────────────────────────────────
+function openModalGenerateFloors() { openModal('modal-generate-floors'); updateGeneratePreview(); }
+
+function updateGeneratePreview() {
+  const format = document.getElementById('gen-format')?.value;
+  if (!format) return;
+
+  const escWrap    = document.getElementById('gen-escalera-wrap');
+  const prefixWrap = document.getElementById('gen-prefix-wrap');
+  const lettersWrap = document.getElementById('gen-letters-wrap');
+
+  escWrap.style.display    = format === 'esc-num-letter' ? 'block' : 'none';
+  prefixWrap.style.display = format === 'custom' ? 'block' : 'none';
+  lettersWrap.style.display = format === 'num-only' ? 'none' : 'block';
+
+  const from    = parseInt(document.getElementById('gen-floor-from').value) || 1;
+  const to      = parseInt(document.getElementById('gen-floor-to').value)   || 5;
+  const letters = (document.getElementById('gen-letters').value || 'A,B').split(',').map(l=>l.trim()).filter(Boolean);
+  const escaleras = (document.getElementById('gen-escaleras').value || 'A').split(',').map(e=>e.trim()).filter(Boolean);
+  const prefix  = document.getElementById('gen-prefix').value || 'Dpto.';
+
+  const items = [];
+
+  for (let f = from; f <= to; f++) {
+    if (format === 'num-only') {
+      items.push(String(f));
+    } else if (format === 'esc-num-letter') {
+      for (const esc of escaleras) {
+        for (const l of letters) {
+          items.push(`Esc ${esc} · ${f}º ${l}`);
+        }
+      }
+    } else if (format === 'custom') {
+      for (const l of letters) {
+        items.push(`${prefix} ${f}${l}`);
+      }
+    } else {
+      for (const l of letters) {
+        items.push(`${f}º ${l}`);
+      }
+    }
+  }
+
+  document.getElementById('gen-preview').textContent = items.slice(0, 30).join('\n') + (items.length > 30 ? `\n... y ${items.length-30} más` : '');
+  document.getElementById('gen-count').textContent   = `Se crearán ${items.length} viviendas`;
+
+  return items;
+}
+
+async function generateFloors() {
+  const items = updateGeneratePreview();
+  if (!items || !items.length) return;
+  if (!confirm(`¿Crear ${items.length} viviendas en este portal?`)) return;
+
+  try {
+    let created = 0;
+    for (const label of items) {
+      try {
+        await apiFetch(`/portals/${currentPortalId}/floors`, 'POST', { unit_label: label });
+        created++;
+      } catch {}
+    }
+    closeModal('modal-generate-floors');
+    loadFloors();
+    toast(`${created} viviendas creadas correctamente`);
+  } catch(e) { toast('Error creando viviendas', 'error'); }
+}
+
+// ── Importar Excel ────────────────────────────────────────
+function openModalImportFloors() { openModal('modal-import-floors'); }
+
+async function previewImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  importData = [];
+
+  if (file.name.endsWith('.csv')) {
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    importData = lines.map(line => {
+      const parts = line.split(',');
+      return { unit_label: (parts[0]||'').trim().replace(/"/g,''), resident_name: (parts[1]||'').trim().replace(/"/g,'') };
+    }).filter(r => r.unit_label);
+  } else {
+    toast('Por ahora solo se admiten archivos CSV. Guarda el Excel como CSV desde Excel: Archivo → Guardar como → CSV', 'info');
+    return;
+  }
+
+  document.getElementById('import-count').textContent = importData.length;
+  document.getElementById('import-preview-list').textContent = importData.slice(0,20).map(r => r.unit_label + (r.resident_name ? ' — ' + r.resident_name : '')).join('\n');
+  document.getElementById('import-preview').style.display = 'block';
+  document.getElementById('import-btn').disabled = importData.length === 0;
+}
+
+async function importFloors() {
+  if (!importData.length) return;
+  const btn = document.getElementById('import-btn');
+  btn.disabled = true; btn.textContent = 'Importando...';
+
+  let created = 0;
+  for (const row of importData) {
+    try {
+      await apiFetch(`/portals/${currentPortalId}/floors`, 'POST', row);
+      created++;
+    } catch {}
+  }
+
+  btn.disabled = false; btn.textContent = 'Importar';
+  closeModal('modal-import-floors');
+  loadFloors();
+  toast(`${created} viviendas importadas`);
+}
+
+// ── Portales CRUD ─────────────────────────────────────────
+function openModalNewPortal() {
+  document.getElementById('portal-modal-title').textContent = 'Nuevo portal';
+  document.getElementById('edit-portal-id').value = '';
+  document.getElementById('portal-name').value    = '';
+  document.getElementById('portal-address').value = '';
+  document.getElementById('portal-city').value    = '';
+  openModal('modal-new-portal');
+}
+
+function openEditPortalModal() {
+  const portal = allPortals.find(p => p.id === currentPortalId);
+  if (!portal) return;
+  document.getElementById('portal-modal-title').textContent = 'Editar portal';
+  document.getElementById('edit-portal-id').value = portal.id;
+  document.getElementById('portal-name').value    = portal.name;
+  document.getElementById('portal-address').value = portal.address;
+  document.getElementById('portal-city').value    = portal.city || '';
+  openModal('modal-new-portal');
+}
+
+async function savePortal() {
+  const editId  = document.getElementById('edit-portal-id').value;
+  const name    = document.getElementById('portal-name').value.trim();
+  const address = document.getElementById('portal-address').value.trim();
+  const city    = document.getElementById('portal-city').value.trim();
+  if (!name || !address) return toast('El nombre y la dirección son obligatorios', 'error');
+
+  try {
+    if (editId) {
+      await apiFetch(`/portals/${editId}`, 'PUT', { name, address, city });
+      toast('Portal actualizado');
+    } else {
+      await apiFetch('/portals', 'POST', { name, address, city });
+      toast('Portal creado');
+    }
+    closeModal('modal-new-portal');
+    loadPortals();
+    loadDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── QR ────────────────────────────────────────────────────
+function openQRModal() { openQRModalDirect(currentPortalId); }
+
+function openQRModalDirect(portalId, name) {
+  currentPortalId = portalId || currentPortalId;
+  const url = `${APP_URL}/visitante.html?portal=${currentPortalId}`;
+  document.getElementById('qr-url-text').textContent = url;
+  generateQRCanvas(url);
+  openModal('modal-qr');
+}
+
+function generateQRCanvas(text) {
+  const container = document.getElementById('qr-canvas');
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: text,
+    width: 200,
+    height: 200,
+    colorDark: '#1a1a1a',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function copyQRUrl() {
+  navigator.clipboard.writeText(document.getElementById('qr-url-text').textContent);
+  toast('URL copiada al portapapeles');
+}
+
+function downloadQR() {
+  const container = document.getElementById('qr-canvas');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) return toast('Error generando QR', 'error');
+  const link = document.createElement('a');
+  link.download = `QR-portal-${currentPortalId}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+  toast('QR descargado');
+}
+
+// ── Enlace vecino ─────────────────────────────────────────
+function openNeighborLink(floorId, label) {
+  const url = `${APP_URL}/vecino.html?portal=${currentPortalId}&floor=${floorId}`;
+  document.getElementById('neighbor-link-floor').textContent = label;
+  document.getElementById('neighbor-link-url').value = url;
+  openModal('modal-neighbor-link');
+}
+
+function copyNeighborLink() {
+  navigator.clipboard.writeText(document.getElementById('neighbor-link-url').value);
+  toast('Enlace copiado');
+}
+
+function shareNeighborLink() {
+  const url     = document.getElementById('neighbor-link-url').value;
+  const floor   = document.getElementById('neighbor-link-floor').textContent;
+  const portal  = allPortals.find(p => p.id === currentPortalId);
+  const msg     = `Hola, te enviamos el enlace para activar el portero virtual de tu vivienda (${floor}) en ${portal?.name || 'tu comunidad'}.\n\nPulsa el enlace para configurarlo:\n${url}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// ── Avisos ────────────────────────────────────────────────
+const noticeTemplates = {
+  urgent:      ['Incendio en el edificio', 'Fuga de gas', 'Inundación en zonas comunes'],
+  maintenance: ['Corte de agua de 10:00 a 14:00', 'Ascensor fuera de servicio', 'Corte de luz programado'],
+  meeting:     ['Junta ordinaria de vecinos', 'Reunión extraordinaria', 'Asamblea de propietarios'],
+  general:     ['Obras en zonas comunes', 'Nueva empresa de limpieza', 'Cambio de horario de recogida'],
+  community:   ['Bienvenida a nuevos vecinos', 'Felices fiestas a toda la comunidad'],
+  water:       ['Corte de agua hoy de 10:00 a 14:00', 'Corte de agua mañana por obras', 'Agua cortada por avería']
+};
+
+const noticeStyles = {
+  urgent:      { cls: 'preview-urgent',      label: '🚨 Urgente' },
+  maintenance: { cls: 'preview-maintenance', label: '🔧 Mantenimiento' },
+  meeting:     { cls: 'preview-meeting',     label: '📅 Convocatoria' },
+  general:     { cls: 'preview-general',     label: '📢 Aviso general' },
+  community:   { cls: 'preview-community',   label: '🎉 Comunidad' },
+  water:       { cls: 'preview-maintenance', label: '💧 Corte de agua' }
+};
+
+function selectNoticeType(el, type) {
+  document.querySelectorAll('#tab-avisos .notice-type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentNoticeType = type;
+  updateTemplates();
+  document.getElementById('notice-preview').style.display = 'none';
+}
+
+function selectGlobalType(el, type) {
+  document.querySelectorAll('#page-announcements .notice-type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentGlobalType = type;
+}
+
+function updateTemplates() {
+  const container = document.getElementById('templates-container');
+  const templates = noticeTemplates[currentNoticeType] || [];
+  container.innerHTML = templates.map(t =>
+    `<button class="btn btn-outline btn-sm" onclick="useTemplate('${t.replace(/'/g,"\\'")}')">
+      ${t}
+    </button>`
+  ).join('');
+}
+
+function useTemplate(text) {
+  document.getElementById('notice-title').value = text;
+  document.getElementById('notice-body').value  = text;
+}
+
+function previewNotice() {
+  const title   = document.getElementById('notice-title').value.trim();
+  const body    = document.getElementById('notice-body').value.trim();
+  const style   = noticeStyles[currentNoticeType] || noticeStyles.general;
+  const preview = document.getElementById('notice-preview');
+  const header  = document.getElementById('preview-header');
+  const bodyEl  = document.getElementById('preview-body');
+
+  header.className = 'announcement-preview-header ' + style.cls;
+  header.textContent = style.label + (title ? ': ' + title : '');
+  bodyEl.textContent = body || '(sin mensaje)';
+  preview.style.display = 'block';
+}
+
+async function sendNotice() {
+  const title      = document.getElementById('notice-title').value.trim();
+  const body       = document.getElementById('notice-body').value.trim();
+  const recipients = document.getElementById('notice-recipients').value;
+  if (!title || !body) return toast('Escribe el título y el mensaje', 'error');
+
+  const style = noticeStyles[currentNoticeType];
+  if (!confirm(`¿Enviar este aviso a los vecinos de este portal?\n\n${style.label}: ${title}`)) return;
+
+  try {
+    await apiFetch(`/portals/${currentPortalId}/notify`, 'POST', {
+      type: currentNoticeType, title, body, recipients
+    });
+    toast('Aviso enviado a los vecinos');
+    document.getElementById('notice-title').value = '';
+    document.getElementById('notice-body').value  = '';
+    document.getElementById('notice-preview').style.display = 'none';
+    loadNoticesHistory();
+  } catch(e) { toast(e.message || 'Error enviando aviso', 'error'); }
+}
+
+async function loadNoticesHistory() {
+  const tbody = document.getElementById('notices-history');
+  try {
+    const notices = await apiFetch(`/portals/${currentPortalId}/notices`);
+    if (!notices.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Sin avisos enviados</td></tr>';
+      return;
+    }
+    tbody.innerHTML = notices.map(n => {
+      const style = noticeStyles[n.type] || noticeStyles.general;
+      return `<tr>
+        <td style="color:var(--muted);font-size:12px">${new Date(n.sent_at).toLocaleString('es')}</td>
+        <td><span class="badge badge-accent">${style.label}</span></td>
+        <td style="font-weight:500">${n.title}</td>
+        <td style="color:var(--muted)">${n.recipients || 0} vecinos</td>
+      </tr>`;
+    }).join('');
+  } catch { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin historial</td></tr>'; }
+}
+
+// ── Avisos globales (múltiples portales) ──────────────────
+function loadAnnouncementPortals() {
+  const container = document.getElementById('portal-checkboxes');
+  container.innerHTML = allPortals.map(p =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border2);border-radius:8px;cursor:pointer">
+      <input type="checkbox" value="${p.id}" style="width:16px;height:16px;accent-color:var(--accent)">
+      <span style="font-size:13px;font-weight:500">${p.name}</span>
+    </label>`
+  ).join('');
+}
+
+async function sendGlobalNotice() {
+  const title   = document.getElementById('global-notice-title').value.trim();
+  const body    = document.getElementById('global-notice-body').value.trim();
+  const checked = [...document.querySelectorAll('#portal-checkboxes input:checked')].map(c => c.value);
+
+  if (!title || !body)      return toast('Escribe el título y el mensaje', 'error');
+  if (!checked.length)      return toast('Selecciona al menos un portal', 'error');
+
+  if (!confirm(`¿Enviar este aviso a ${checked.length} portales?`)) return;
+
+  let sent = 0;
+  for (const portalId of checked) {
+    try {
+      await apiFetch(`/portals/${portalId}/notify`, 'POST', {
+        type: currentGlobalType, title, body, recipients: 'active'
+      });
+      sent++;
+    } catch {}
+  }
+
+  toast(`Aviso enviado a ${sent} portales`);
+  document.getElementById('global-notice-title').value = '';
+  document.getElementById('global-notice-body').value  = '';
+}
+
+// ── Llamadas ──────────────────────────────────────────────
+async function loadAllCalls() {
+  const tbody = document.getElementById('all-calls-table');
+  try {
+    const portals = allPortals.length ? allPortals : await apiFetch('/portals');
+    allPortals = portals;
+    let allCalls = [], totalAnswered = 0;
+
+    for (const p of portals) {
+      try {
+        const stats = await apiFetch(`/portals/${p.id}/stats`);
+        (stats.recentCalls || stats.recent || []).forEach(c => { c._portalName = p.name; allCalls.push(c); });
+        totalAnswered += parseInt(stats.answered_calls || 0);
+      } catch {}
+    }
+
+    allCalls.sort((a,b) => new Date(b.started_at) - new Date(a.started_at));
+    const total  = allCalls.length;
+    const missed = total - totalAnswered;
+
+    document.getElementById('calls-total').textContent    = total;
+    document.getElementById('calls-answered').textContent = totalAnswered;
+    document.getElementById('calls-missed').textContent   = missed;
+
+    if (!allCalls.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:40px">Sin llamadas registradas</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = allCalls.map(c => `<tr>
+      <td style="font-size:12px;color:var(--muted)">${new Date(c.started_at).toLocaleString('es')}</td>
+      <td style="font-weight:500">${c._portalName}</td>
+      <td>${c.floor_label || (c.floor_number ? c.floor_number+(c.floor_letter?'º '+c.floor_letter:'') : '—')}</td>
+      <td><span class="badge ${c.answered ? 'badge-green' : 'badge-amber'}"><span class="dot"></span>${c.answered ? 'Contestada' : 'Sin respuesta'}</span></td>
+      <td style="color:var(--muted)">${c.duration_sec > 0 ? Math.floor(c.duration_sec/60)+'m '+c.duration_sec%60+'s' : '—'}</td>
+    </tr>`).join('');
+  } catch(e) { toast('Error cargando llamadas', 'error'); }
+}
+
+async function loadPortalCalls() {
+  const tbody = document.getElementById('calls-detail-table');
+  try {
+    const stats = await apiFetch(`/portals/${currentPortalId}/stats`);
+    const calls = stats.recentCalls || stats.recent || [];
+    if (!calls.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">Sin llamadas registradas</td></tr>';
+      return;
+    }
+    tbody.innerHTML = calls.map(c => `<tr>
+      <td style="font-size:12px;color:var(--muted)">${new Date(c.started_at).toLocaleString('es')}</td>
+      <td style="font-weight:500">${c.floor_label || (c.floor_number ? c.floor_number+(c.floor_letter?'º '+c.floor_letter:'') : '—')}</td>
+      <td><span class="badge ${c.answered ? 'badge-green' : 'badge-amber'}"><span class="dot"></span>${c.answered ? 'Contestada' : 'Sin respuesta'}</span></td>
+      <td style="color:var(--muted)">${c.duration_sec > 0 ? Math.floor(c.duration_sec/60)+'m '+c.duration_sec%60+'s' : '—'}</td>
+    </tr>`).join('');
+  } catch { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Error cargando</td></tr>'; }
+}
+
+// ── Cuenta ────────────────────────────────────────────────
+async function saveAccount() {
+  const name = document.getElementById('acc-name').value.trim();
+  if (!name) return toast('Escribe tu nombre', 'error');
+  try {
+    await apiFetch('/auth/profile', 'PUT', { name });
+    currentClient.name = name;
+    localStorage.setItem('admin-client', JSON.stringify(currentClient));
+    document.getElementById('user-name').textContent = name;
+    toast('Datos actualizados');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function changePassword() {
+  const current = document.getElementById('acc-pwd-current').value;
+  const newPwd  = document.getElementById('acc-pwd-new').value;
+  if (!current || !newPwd) return toast('Completa ambos campos', 'error');
+  if (newPwd.length < 8)   return toast('La nueva contraseña debe tener al menos 8 caracteres', 'error');
+  try {
+    await apiFetch('/auth/change-password', 'POST', { currentPassword: current, newPassword: newPwd });
+    document.getElementById('acc-pwd-current').value = '';
+    document.getElementById('acc-pwd-new').value = '';
+    toast('Contraseña actualizada');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Modal helpers ─────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('open');
   }
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT) || 3000;
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
 
-console.log(`[BOOT] DATABASE_URL configurada: ${process.env.DATABASE_URL ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] VAPID_PUBLIC_KEY configurada: ${process.env.VAPID_PUBLIC_KEY ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] JWT_SECRET configurada: ${process.env.JWT_SECRET ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] Iniciando en puerto ${PORT}...`);
+// ── Init ──────────────────────────────────────────────────
+updateTemplates();
+if (token && currentClient) {
+  initApp();
+} else {
+  document.getElementById('screen-login').style.display = 'flex';
+}
+</script>
+<!-- ── Modal: Olvidé mi contraseña ── -->
+<div class="modal-overlay" id="modal-forgot" style="z-index:2000">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Recuperar contraseña</div>
+      <button class="modal-close" onclick="closeModal('modal-forgot')">×</button>
+    </div>
+    <div id="forgot-step1-inner">
+      <div class="modal-body">
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
+          Introduce tu email y la nueva contraseña que quieres usar.
+        </p>
+        <div class="form-group">
+          <label>Email de tu cuenta</label>
+          <input type="email" id="forgot-email" placeholder="tu@email.com">
+        </div>
+        <div class="form-group">
+          <label>Nueva contraseña (mín. 6 caracteres)</label>
+          <div style="position:relative">
+            <input type="password" id="forgot-pass1" placeholder="••••••••" style="padding-right:40px">
+            <button type="button" onclick="togglePwd('forgot-pass1',this)" tabindex="-1"
+              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                     background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex">
+              <svg id="eye-pass1" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Repite la nueva contraseña</label>
+          <div style="position:relative">
+            <input type="password" id="forgot-pass2" placeholder="••••••••" style="padding-right:40px">
+            <button type="button" onclick="togglePwd('forgot-pass2',this)" tabindex="-1"
+              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                     background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="forgot-error-inner" class="login-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-forgot')">Cancelar</button>
+        <button class="btn btn-accent" onclick="doForgotReset()" id="forgot-btn-inner">Cambiar contraseña</button>
+      </div>
+    </div>
+    <div id="forgot-step2-inner" style="display:none">
+      <div class="modal-body" style="text-align:center;padding:40px 24px">
+        <div style="font-size:48px;margin-bottom:16px">✅</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">¡Contraseña cambiada!</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:24px">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+        <button class="btn btn-accent" style="width:100%" onclick="closeModal('modal-forgot')">Ir al login</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-// initDB primero, luego escuchar — evita race condition con migraciones
-initDB()
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Portero Virtual v2.3 — puerto ${PORT} activo`);
+<script>
+// ── Forgot password ───────────────────────────────────────
+window.openForgot = function() {
+  document.getElementById('forgot-step1-inner').style.display = '';
+  document.getElementById('forgot-step2-inner').style.display = 'none';
+  document.getElementById('forgot-error-inner').style.display = 'none';
+  document.getElementById('forgot-email').value  = document.getElementById('login-email')?.value || '';
+  document.getElementById('forgot-pass1').value  = '';
+  document.getElementById('forgot-pass2').value  = '';
+  openModal('modal-forgot');
+  setTimeout(() => document.getElementById('forgot-email').focus(), 100);
+};
+
+window.doForgotReset = async function() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const pass1 = document.getElementById('forgot-pass1').value;
+  const pass2 = document.getElementById('forgot-pass2').value;
+  const errEl = document.getElementById('forgot-error-inner');
+  const btn   = document.getElementById('forgot-btn-inner');
+
+  errEl.style.display = 'none';
+  if (!email)              return showFErr('Introduce tu email');
+  if (pass1.length < 6)   return showFErr('Mínimo 6 caracteres');
+  if (pass1 !== pass2)     return showFErr('Las contraseñas no coinciden');
+
+  btn.disabled = true; btn.textContent = 'Cambiando...';
+  try {
+    const res  = await fetch('https://merry-joy-production-4504.up.railway.app/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, newPassword: pass1, resetKey: 'portero-reset-2026' })
     });
-  })
-  .catch(e => {
-    // Si falla initDB, arrancar de todas formas pero logueando el error
-    console.error('[BOOT] ❌ DB init error:', e.message);
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`⚠️  Portero Virtual v2.3 — puerto ${PORT} (DB con errores)`);
-    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      document.getElementById('forgot-step1-inner').style.display = 'none';
+      document.getElementById('forgot-step2-inner').style.display = '';
+      const loginEl = document.getElementById('login-email');
+      if (loginEl) loginEl.value = email;
+    } else {
+      showFErr(data.error || 'Error al cambiar la contraseña');
+    }
+  } catch { showFErr('No se pudo conectar con el servidor'); }
+  finally  { btn.disabled = false; btn.textContent = 'Cambiar contraseña'; }
+};
+
+function showFErr(msg) {
+  const el = document.getElementById('forgot-error-inner');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+window.togglePwd = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const show  = input.type === 'password';
+  input.type  = show ? 'text' : 'password';
+  // Cambiar icono ojo → ojo tachado
+  btn.innerHTML = show
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+         <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+         <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+         <line x1="1" y1="1" x2="23" y2="23"/>
+       </svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+       </svg>`;
+};
+
+['forgot-pass1','forgot-pass2'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doForgotReset();
   });
+});
+</script>
+
+</body>
+</html>
