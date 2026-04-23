@@ -129,6 +129,8 @@ async function initDB() {
     `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
     // portals: user_id puede no existir si el schema original era diferente
     `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
+    // client_id existe en el schema original con NOT NULL — hacerlo opcional
+    `ALTER TABLE portals ALTER COLUMN client_id DROP NOT NULL`
     // ✅ CRÍTICO: floors no tiene push_subscription ni created_at en el schema real
     `ALTER TABLE floors ADD COLUMN IF NOT EXISTS push_subscription JSONB`,
     `ALTER TABLE floors ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`
@@ -234,7 +236,7 @@ app.post('/api/portals', authMiddleware, async (req, res) => {
   try {
     const id = genId(16);
     const r = await pool.query(
-      'INSERT INTO portals (id, user_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,true) RETURNING *',
+      'INSERT INTO portals (id, user_id, client_id, name, address, city, active) VALUES ($1,$2,$2,$3,$4,$5,true) RETURNING *',
       [id, req.user.id, name, address || '', city || '']
     );
     res.json(r.rows[0]);
