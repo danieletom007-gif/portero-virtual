@@ -214,7 +214,14 @@ app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
 app.get('/api/portals', authMiddleware, async (req, res) => {
   try {
     const r = await pool.query(
-      'SELECT id, name, address, city, active, user_id, created_at FROM portals WHERE user_id = $1 ORDER BY created_at DESC',
+      `SELECT p.id, p.name, p.address, p.city, p.active, p.user_id, p.created_at,
+              COUNT(f.id) AS floor_count,
+              COUNT(CASE WHEN f.push_subscription IS NOT NULL THEN 1 END) AS active_neighbors
+       FROM portals p
+       LEFT JOIN floors f ON f.portal_id = p.id
+       WHERE p.user_id = $1
+       GROUP BY p.id
+       ORDER BY p.created_at DESC`,
       [req.user.id]
     );
     res.json(r.rows);
@@ -640,6 +647,33 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('error', (e) => console.error('[WS] error:', e.message));
+});
+
+
+// ─── RESET CONTRASEÑA TEMPORAL (eliminar tras recuperar acceso) ───────────────
+// Uso: POST /reset-password  { email, newPassword, resetKey }
+// resetKey debe coincidir con RESET_KEY en env vars o con el valor hardcoded de abajo
+app.post('/reset-password', async (req, res) => {
+  const { email, newPassword, resetKey } = req.body;
+  const VALID_KEY = process.env.RESET_KEY || 'portero-reset-2026';
+  if (resetKey !== VALID_KEY) {
+    return res.status(403).json({ error: 'resetKey incorrecto' });
+  }
+  if (!email || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'email y newPassword (min 6 chars) requeridos' });
+  }
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    const r = await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE email = $2 RETURNING id, email',
+      [hash, email.toLowerCase().trim()]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Email no encontrado' });
+    console.log(`[RESET] Contraseña actualizada para ${email}`);
+    res.json({ ok: true, email: r.rows[0].email, message: 'Contraseña actualizada. Borra este endpoint.' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Health ───────────────────────────────────────────────────────────────────
