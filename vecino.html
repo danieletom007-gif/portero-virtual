@@ -870,33 +870,37 @@ async function answerCall() {
       dbg('ICE: ' + pc.iceConnectionState);
     };
 
+    let videoPlayStarted = false;
     pc.ontrack = (e) => {
       dbg('ontrack: kind=' + e.track.kind + ' streams=' + e.streams.length);
       if (!e.streams || !e.streams[0]) { dbg('ERROR: sin stream'); return; }
       const video = document.getElementById('remote-video');
       if (!video) return;
-      // Asignar srcObject solo una vez — la segunda llamada (audio/video)
-      // interrumpiría el play() en curso causando pantalla negra
-      if (video.srcObject) {
-        dbg('srcObject ya asignado — skip');
-        return;
-      }
+
+      // Siempre actualizar srcObject (es el mismo objeto stream — no-op si igual)
       video.srcObject = e.streams[0];
-      video.muted = true;
-      video.play()
-        .then(() => {
-          video.muted = false;
-          dbg('video.play() OK — vídeo activo');
-        })
-        .catch(err => {
-          dbg('play() error: ' + err.message + ' — reintentando');
-          // Reintentar tras breve pausa
-          setTimeout(() => {
-            video.play()
-              .then(() => { video.muted = false; dbg('retry OK'); })
-              .catch(e2 => { video.muted = false; dbg('retry fail: ' + e2.message); });
-          }, 300);
-        });
+
+      // Llamar play() solo la primera vez para no interrumpir el playback
+      if (!videoPlayStarted) {
+        videoPlayStarted = true;
+        video.muted = true;
+        video.play()
+          .then(() => {
+            video.muted = false;
+            dbg('video play OK');
+          })
+          .catch(err => {
+            dbg('play error: ' + err.message + ' — reintentando en 500ms');
+            setTimeout(() => {
+              video.muted = true;
+              video.play()
+                .then(() => { video.muted = false; dbg('retry OK'); })
+                .catch(e2 => { video.muted = false; dbg('retry fail: ' + e2.message); });
+            }, 500);
+          });
+      } else {
+        dbg('track adicional añadido al stream — play ya activo');
+      }
     };
 
     pc.onicecandidate = (e) => {
