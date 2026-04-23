@@ -728,7 +728,13 @@ async function handleWsMessage(data) {
 
     case 'offer': {
       pendingOffer = data.offer;
-      break;
+      // Si ya contestamos pero el offer llegó tarde, procesarlo ahora
+      if (pc && pc.signalingState === 'stable') {
+        pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+          .then(() => pc.createAnswer())
+          .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',answer,room:myRoom})); })
+          .catch(e => console.warn('late offer:', e));
+      }
     }
 
     case 'ice': {
@@ -786,8 +792,13 @@ async function answerCall() {
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
     pc.ontrack = (e) => {
+      if (!e.streams || !e.streams[0]) return;
       const video = document.getElementById('remote-video');
-      if (video) video.srcObject = e.streams[0];
+      if (video) {
+        video.srcObject = e.streams[0];
+        // play() explícito necesario en móvil Chrome
+        video.play().catch(err => console.warn('video.play():', err));
+      }
     };
 
     pc.onicecandidate = (e) => {
@@ -796,14 +807,17 @@ async function answerCall() {
       }
     };
 
+    // Avisar al visitante que estamos listos — él enviará el offer
+    ws.send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
+
+    // Si el offer ya llegó antes de contestar, procesarlo ahora
     if (pendingOffer) {
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'answer', answer, room: myRoom }));
     }
-
-    ws.send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
+    // Si no hay offer aún, el case 'offer' lo procesará cuando llegue
 
     const topLabel = document.getElementById('call-top-label');
     if (topLabel) topLabel.textContent = myLabel || 'En llamada';
