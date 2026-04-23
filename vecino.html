@@ -372,11 +372,11 @@ function initApp() {
     }
   }
   if (urlContest && myRoom && myPortalId) {
-    showAllScreens('screen-standby');
     loadPortalInfo();
-    connectWS(() => {
-      showAllScreens('screen-incoming');
-    });
+    connectWS();
+    // Mostrar incoming directamente — el WS se conectará y recibirá
+    // visitor-calling o el offer pendiente
+    showAllScreens('screen-incoming');
     checkQuietMode();
     return;
   }
@@ -859,10 +859,16 @@ async function handleOffer(sdp) {
       if (track.kind === 'video') {
         const video = document.getElementById('remote-video');
         video.srcObject = streams[0];
+        // Forzar reproducción cuando el track esté listo
+        track.onunmute = () => {
+          video.play().catch(() => {});
+        };
         video.play().catch(() => {});
       }
       if (track.kind === 'audio') {
-        document.getElementById('visitor-audio').srcObject = streams[0];
+        const audio = document.getElementById('visitor-audio');
+        audio.srcObject = streams[0];
+        audio.play().catch(() => {});
       }
     };
 
