@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portero-v2';
+const CACHE_NAME = 'portero-v3';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -33,12 +33,18 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || '/portero-virtual/vecino.html';
+  const data = e.notification.data || {};
+  const url  = data.url || '/portero-virtual/vecino.html';
+
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Si ya hay una ventana de vecino abierta, navegar a la URL con contestar=true
       for (const c of list) {
-        if (c.url.includes('vecino') && 'focus' in c) return c.focus();
+        if (c.url.includes('vecino')) {
+          return c.navigate(url).then(client => client ? client.focus() : clients.openWindow(url));
+        }
       }
+      // Si no hay ventana abierta, abrir una nueva
       return clients.openWindow(url);
     })
   );
