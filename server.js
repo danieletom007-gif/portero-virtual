@@ -130,6 +130,7 @@ async function initDB() {
     // portals: user_id puede no existir si el schema original era diferente
     `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
     // client_id: eliminar FK y NOT NULL del schema original
+    `ALTER TABLE portals DROP CONSTRAINT IF EXISTS portals_client_id_fkey`,
     `ALTER TABLE portals ALTER COLUMN client_id DROP NOT NULL`,
     `ALTER TABLE portals ALTER COLUMN client_id DROP DEFAULT`,
     `DO $$ BEGIN
@@ -241,8 +242,8 @@ app.post('/api/portals', authMiddleware, async (req, res) => {
   try {
     const id = genId(16);
     const r = await pool.query(
-      'INSERT INTO portals (id, user_id, client_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,$6,true) RETURNING *',
-      [id, req.user.id, req.user.id, name, address || '', city || '']
+      'INSERT INTO portals (id, user_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,true) RETURNING *',
+      [id, req.user.id, name, address || '', city || '']
     );
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
