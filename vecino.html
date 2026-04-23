@@ -236,9 +236,17 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
         <input type="time" id="quiet-to" value="09:00" onchange="saveQuiet()">
       </div>
     </div>
-    <div class="standby-row">
+    <div class="standby-row" id="notif-row">
       <span class="standby-row-label">Notificaciones</span>
       <span class="standby-row-val" id="sb-notif" style="font-size:13px">—</span>
+    </div>
+    <!-- Banner de activar notificaciones — visible si no están configuradas -->
+    <div id="notif-banner" style="display:none;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:14px;margin-top:12px">
+      <p style="font-size:13px;color:#f97316;font-weight:600;margin-bottom:6px">⚠️ Notificaciones no activadas</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">Sin ellas no recibirás la llamada cuando el móvil esté bloqueado.</p>
+      <button onclick="activarNotificaciones()" style="width:100%;padding:11px;border-radius:10px;background:#f97316;border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+        Activar notificaciones
+      </button>
     </div>
   </div>
 
@@ -264,7 +272,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <!-- ════════════ PANTALLA: LLAMADA ════════════ -->
 <div id="screen-call" style="display:none">
-  <video id="remote-video" autoplay playsinline></video>
+  <video id="remote-video" autoplay playsinline webkit-playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
 
   <div class="call-overlay">
     <div class="call-top">
@@ -551,7 +559,16 @@ async function doActivate() {
     return;
   }
 
-  // Construir room usando floorId (nuevo sistema)
+  // Mostrar pantalla de espera mientras se configura
+  showAllScreens('screen-success');
+  const el = document.getElementById('success-label');
+  if (el) el.textContent = 'Configurando tu portero…';
+  const cd = document.getElementById('success-countdown');
+  if (cd) cd.textContent = 'Por favor espera…';
+  const successIcon = document.querySelector('#screen-success .success-icon');
+  if (successIcon) successIcon.textContent = '⏳';
+
+  // Construir room usando floorId
   myRoom = `${myPortalId}-${myFloorId}`;
 
   // Guardar todo en localStorage
@@ -569,19 +586,34 @@ async function doActivate() {
     console.warn('Micrófono no disponible:', e);
   }
 
-  // Registrar push
+  // Pedir permiso de notificaciones Y registrar push en el mismo paso
+  // (debe hacerse con interacción del usuario activa — aquí es el momento correcto)
   await setupPush();
 
   showActivationSuccess();
 }
 
 function showActivationSuccess() {
+  // Restaurar icono (puede estar en ⏳ si vino de doActivate)
+  const icon = document.querySelector('#screen-success .success-icon');
+  if (icon) icon.textContent = '✅';
+
   const el = document.getElementById('success-label');
   if (el) el.textContent = `Has configurado correctamente "${myLabel}"`;
+
+  const perm = ('Notification' in window) ? Notification.permission : 'default';
+  const cd   = document.getElementById('success-countdown');
+  if (cd) {
+    cd.innerHTML = perm === 'granted'
+      ? '🔔 Notificaciones activas — recibirás llamadas aunque el móvil esté bloqueado'
+      : '⚠️ Podrás recibir llamadas solo con la app abierta. Activa las notificaciones desde ajustes.';
+  }
+
   showAllScreens('screen-success');
-  // Cuenta atrás de 3 segundos y avance automático a standby
-  let secs = 3;
+  // Cuenta atrás de 4 segundos
+  let secs = 4;
   const numEl = document.getElementById('countdown-num');
+  if (numEl) numEl.textContent = secs;
   const interval = setInterval(() => {
     secs--;
     if (numEl) numEl.textContent = secs;
@@ -610,14 +642,15 @@ function updateStandbyUI() {
   if (sbSub)    sbSub.textContent    = 'Esperando llamadas…';
 
   // Estado notificaciones
-  const sbNotif = document.getElementById('sb-notif');
-  if (sbNotif) {
-    if ('Notification' in window) {
-      sbNotif.textContent = Notification.permission === 'granted' ? '✅ Activas' :
-                            Notification.permission === 'denied'  ? '❌ Bloqueadas' : '⚠️ Sin configurar';
-    } else {
-      sbNotif.textContent = 'No soportadas';
-    }
+  const sbNotif  = document.getElementById('sb-notif');
+  const banner   = document.getElementById('notif-banner');
+  if ('Notification' in window) {
+    const perm = Notification.permission;
+    if (sbNotif) sbNotif.textContent = perm === 'granted' ? '✅ Activas' :
+                                       perm === 'denied'  ? '❌ Bloqueadas (ajustes del móvil)' : '⚠️ Sin configurar';
+    if (banner) banner.style.display = (perm !== 'granted') ? '' : 'none';
+  } else {
+    if (sbNotif) sbNotif.textContent = 'No soportadas';
   }
 }
 
@@ -796,8 +829,14 @@ async function answerCall() {
       const video = document.getElementById('remote-video');
       if (video) {
         video.srcObject = e.streams[0];
-        // play() explícito necesario en móvil Chrome
-        video.play().catch(err => console.warn('video.play():', err));
+        video.muted = false; // desmutar tras asignar el stream
+        video.play()
+          .then(() => { video.muted = false; })
+          .catch(err => {
+            console.warn('video.play() falló, reintentando sin muted:', err);
+            // En algunos móviles necesita interacción del usuario — mostrar el vídeo igualmente
+            video.muted = false;
+          });
       }
     };
 
@@ -917,6 +956,11 @@ function appendChatMsg(text, type) {
 }
 
 // ─── MODO SILENCIOSO ──────────────────────────────────────────────────────────
+async function activarNotificaciones() {
+  await setupPush();
+  updateStandbyUI();
+}
+
 function toggleQuiet() {
   const checked = document.getElementById('toggle-quiet').checked;
   const times   = document.getElementById('quiet-times');
