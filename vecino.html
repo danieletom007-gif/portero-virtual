@@ -360,35 +360,48 @@ if (urlParams.get('floor'))   localStorage.setItem('portero-floor-url',  urlPara
 
 // ─── INIT — síncrona, sin await ───────────────────────────────────────────────
 function initApp() {
-  if (isInstalledApp()) {
-    loadStoredConfig();
+  loadStoredConfig();
+
+  // PRIORIDAD 1: llegamos desde una notificación push con ?contestar=true
+  // Funciona aunque la app no esté en modo standalone
+  if (urlContest && myRoom && myPortalId) {
+    showAllScreens('screen-standby');
+    loadPortalInfo();
+    connectWS(() => {
+      showAllScreens('screen-incoming');
+    });
+    checkQuietMode();
+    return;
+  }
+
+  // PRIORIDAD 2: app ya configurada (instalada con config guardada)
+  if (isInstalledApp() || (myRoom && myPortalId)) {
     if (myRoom && myPortalId) {
-      if (urlContest) {
-        showAllScreens('screen-standby');
-        loadPortalInfo();
-        connectWS(() => {
-          showAllScreens('screen-incoming');
-        });
-      } else {
-        showAllScreens('screen-standby');
-        updateStandbyUI();
-        loadPortalInfo();
-        connectWS();
-      }
+      showAllScreens('screen-standby');
+      updateStandbyUI();
+      loadPortalInfo();
+      connectWS();
     } else if (urlPortal || urlFloorId) {
       showAllScreens('screen-setup');
       loadPortalInfo();
     } else {
-      // App instalada sin config y sin URL params — mostrar aviso claro
       showAllScreens('screen-setup');
       const nameEl = document.getElementById('pi-name');
       const addrEl = document.getElementById('pi-addr');
-      if (nameEl) nameEl.textContent = 'Enlace no encontrado';
-      if (addrEl) addrEl.textContent = 'Abre la app usando el enlace del panel de administración';
+      if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+      if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
     }
   } else {
-    showAllScreens('screen-install');
-    showInstallSection();
+    // No instalada — mostrar pantalla de instalación
+    if (urlPortal || urlFloorId) {
+      // Tiene params de URL: ir directo a setup tras marcar como instalada
+      localStorage.setItem('portero-installed', '1');
+      showAllScreens('screen-setup');
+      loadPortalInfo();
+    } else {
+      showAllScreens('screen-install');
+      showInstallSection();
+    }
   }
   checkQuietMode();
 }
@@ -861,19 +874,29 @@ async function answerCall() {
       dbg('ontrack: kind=' + e.track.kind + ' streams=' + e.streams.length);
       if (!e.streams || !e.streams[0]) { dbg('ERROR: sin stream'); return; }
       const video = document.getElementById('remote-video');
-      if (video) {
-        video.srcObject = e.streams[0];
-        video.muted = true;
-        video.play()
-          .then(() => {
-            video.muted = false;
-            dbg('video.play() OK');
-          })
-          .catch(err => {
-            dbg('video.play() error: ' + err.message);
-            video.muted = false;
-          });
+      if (!video) return;
+      // Asignar srcObject solo una vez — la segunda llamada (audio/video)
+      // interrumpiría el play() en curso causando pantalla negra
+      if (video.srcObject) {
+        dbg('srcObject ya asignado — skip');
+        return;
       }
+      video.srcObject = e.streams[0];
+      video.muted = true;
+      video.play()
+        .then(() => {
+          video.muted = false;
+          dbg('video.play() OK — vídeo activo');
+        })
+        .catch(err => {
+          dbg('play() error: ' + err.message + ' — reintentando');
+          // Reintentar tras breve pausa
+          setTimeout(() => {
+            video.play()
+              .then(() => { video.muted = false; dbg('retry OK'); })
+              .catch(e2 => { video.muted = false; dbg('retry fail: ' + e2.message); });
+          }, 300);
+        });
     };
 
     pc.onicecandidate = (e) => {
