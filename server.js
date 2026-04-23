@@ -638,8 +638,32 @@ wss.on('connection', (ws) => {
 });
 
 // ─── Health ───────────────────────────────────────────────────────────────────
-app.get('/',       (req, res) => res.json({ status: 'ok', version: '2.2', time: new Date().toISOString() }));
+app.get('/',       (req, res) => res.json({ status: 'ok', version: '2.3', time: new Date().toISOString() }));
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// ─── DEBUG schema (eliminar tras diagnosticar) ────────────────────────────────
+app.get('/debug/schema', async (req, res) => {
+  try {
+    const tables = ['users', 'portals', 'floors'];
+    const result = {};
+    for (const t of tables) {
+      const r = await pool.query(
+        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`,
+        [t]
+      );
+      result[t] = r.rows.map(x => x.column_name);
+    }
+    try {
+      await pool.query(`SELECT id, name, user_id FROM portals LIMIT 1`);
+      result._portals_user_id = 'OK';
+    } catch(e) {
+      result._portals_user_id = 'ERROR: ' + e.message;
+    }
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT) || 3000;
