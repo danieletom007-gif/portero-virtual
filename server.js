@@ -621,7 +621,10 @@ wss.on('connection', (ws) => {
         }
 
         if (role === 'neighbor') {
-          broadcast(room, { type: 'neighbor-ready', room }, ws);
+          // NO enviamos neighbor-ready automáticamente.
+          // El vecino lo envía explícitamente al pulsar "Contestar" en answerCall().
+          // Esto evita que el visitante envíe el offer antes de que el vecino
+          // haya creado su RTCPeerConnection.
         }
         break;
       }
