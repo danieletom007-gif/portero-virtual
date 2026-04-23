@@ -547,6 +547,9 @@
       <span>Conectando videollamada...</span>
     </div>
   </div>
+  <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:16px">
+    Cancelando en <span id="ring-countdown">60</span>s
+  </div>
 
   <div class="ring-wrap">
     <div class="ring">
@@ -667,7 +670,7 @@ const STUN_SERVERS = [
     credential: 'el8RlAfkuUr8C3eOA'
   }
 ];
-const RING_TIMEOUT_MS = 30000;
+const RING_TIMEOUT_MS = 60000; // 60 segundos — tiempo para recibir push y contestar
 // ============================================================
 
 // ── Estado global ─────────────────────────────────────────
@@ -805,8 +808,18 @@ async function startCall() {
   show('screen-calling');
   setStep(1);
 
-  // Timeout sin respuesta
+  // Timeout sin respuesta + contador visual
+  let countdownSecs = RING_TIMEOUT_MS / 1000;
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = countdownSecs;
+  const countdownInterval = setInterval(() => {
+    countdownSecs--;
+    if (countdownEl) countdownEl.textContent = countdownSecs;
+    if (countdownSecs <= 0) clearInterval(countdownInterval);
+  }, 1000);
+
   ringTimeout = setTimeout(() => {
+    clearInterval(countdownInterval);
     if (ws) ws.close();
     stopLocalStream();
     show('screen-noanswer');
@@ -943,6 +956,8 @@ function escapeHtml(text) {
 function hangup(notify = true) {
   clearChat();
   clearTimeout(ringTimeout);
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = '';
   stopTimer();
   if (notify && ws && ws.readyState === WebSocket.OPEN) send({ type: 'hangup', room: callRoom });
   if (pc) { pc.close(); pc = null; }
