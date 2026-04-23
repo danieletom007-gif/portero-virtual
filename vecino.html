@@ -364,10 +364,9 @@ function initApp() {
   loadStoredConfig();
 
   // PRIORIDAD 1: llegamos desde una notificación push con ?contestar=true
-  // Si myRoom no está en localStorage, reconstruirlo desde los params de la URL
   if (urlContest) {
     if (!myRoom && urlPortal && urlFloorId) {
-      myRoom     = `${urlPortal}-${urlFloorId}`;
+      myRoom = `${urlPortal}-${urlFloorId}`;
       myPortalId = urlPortal;
       myFloorId  = urlFloorId;
     }
@@ -786,10 +785,7 @@ async function handleWsMessage(data) {
   switch (data.type) {
 
     case 'visitor-calling': {
-      if (isQuietMode()) {
-        showQuietBar();
-      }
-      pendingOffer = null;
+      if (isQuietMode()) showQuietBar();
       showAllScreens('screen-incoming');
       const sub = document.getElementById('incoming-sub');
       if (sub) sub.textContent = `Visita para ${myLabel}`;
@@ -798,14 +794,7 @@ async function handleWsMessage(data) {
     }
 
     case 'offer': {
-      pendingOffer = data.sdp || data.offer;
-      // Si ya contestamos pero el offer llegó tarde, procesarlo ahora
-      if (pc && pc.signalingState === 'stable') {
-        pc.setRemoteDescription(new RTCSessionDescription(data.sdp || data.offer))
-          .then(() => pc.createAnswer())
-          .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',sdp:answer,room:myRoom})); })
-          .catch(e => console.warn('late offer:', e));
-      }
+      await handleOffer(data.sdp);
       break;
     }
 
@@ -850,34 +839,21 @@ function playRingTone() {
   } catch {}
 }
 
-function dbg(msg) {
-  console.log('[WebRTC]', msg);
-  const el = document.getElementById('webrtc-debug');
-  if (el) { el.style.display = ''; el.innerHTML += msg + '<br>'; el.scrollTop = el.scrollHeight; }
-}
-
-async function answerCall() {
+function answerCall() {
+  send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
   showAllScreens('screen-call');
   startCallTimer();
-  dbg('answerCall iniciado');
+  const topLabel = document.getElementById('call-top-label');
+  if (topLabel) topLabel.textContent = myLabel || 'En llamada';
+}
 
+async function handleOffer(sdp) {
   try {
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     }
-    dbg('micrófono OK');
-
     pc = new RTCPeerConnection(TURN_CONFIG);
-
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
-    pc.onconnectionstatechange = () => {
-      dbg('conexión: ' + pc.connectionState);
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      dbg('ICE: ' + pc.iceConnectionState);
-    };
 
     pc.ontrack = ({ track, streams }) => {
       if (track.kind === 'video') {
@@ -890,36 +866,21 @@ async function answerCall() {
       }
     };
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: myRoom }));
-        dbg('ICE candidate enviado');
-      }
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) send(JSON.stringify({ type: 'ice', room: myRoom, candidate }));
     };
 
-    // Avisar al visitante que estamos listos — él enviará el offer
-    ws.send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
-    dbg('neighbor-ready enviado, pendingOffer=' + !!pendingOffer);
+    pc.onconnectionstatechange = () => {
+      if (['disconnected','failed','closed'].includes(pc.connectionState)) endCall();
+    };
 
-    // Si el offer ya llegó antes de contestar, procesarlo ahora
-    if (pendingOffer) {
-      dbg('procesando pendingOffer...');
-      await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
-      dbg('setRemoteDescription OK');
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: myRoom }));
-      dbg('answer enviado');
-    } else {
-      dbg('sin pendingOffer — esperando offer del visitante');
-    }
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send(JSON.stringify({ type: 'answer', room: myRoom, sdp: pc.localDescription }));
 
-    const topLabel = document.getElementById('call-top-label');
-    if (topLabel) topLabel.textContent = myLabel || 'En llamada';
-
-  } catch (e) {
-    dbg('ERROR: ' + e.message);
-    console.error('answerCall error:', e);
+  } catch(e) {
+    console.error('handleOffer error:', e);
     endCall();
   }
 }
@@ -1072,6 +1033,8 @@ function showQuietBar() {
     setTimeout(() => bar.classList.remove('show'), 4000);
   }
 }
+
+function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg); }
 
 // ─── ARRANCAR ─────────────────────────────────────────────────────────────────
 initApp();
