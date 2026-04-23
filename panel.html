@@ -1820,5 +1820,204 @@ if (token && currentClient) {
   document.getElementById('screen-login').style.display = 'flex';
 }
 </script>
+  <!-- ============================================================
+     PARCHE: Olvidé mi contraseña
+     Pega esto justo antes de </body> en panel.html
+     ============================================================ -->
+
+<!-- Modal overlay -->
+<div id="forgot-overlay" style="
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);
+  z-index:9999;align-items:center;justify-content:center;
+">
+  <div style="
+    background:#1a1a2e;border:1px solid #2d2d4e;border-radius:16px;
+    padding:32px;width:90%;max-width:400px;position:relative;
+  ">
+    <button onclick="closeForgot()" style="
+      position:absolute;top:12px;right:16px;background:none;border:none;
+      color:#888;font-size:22px;cursor:pointer;
+    ">×</button>
+
+    <!-- Paso 1: introducir email -->
+    <div id="forgot-step1">
+      <h2 style="color:#fff;font-size:20px;margin-bottom:8px">Recuperar contraseña</h2>
+      <p style="color:#888;font-size:14px;margin-bottom:20px">
+        Introduce tu email y la nueva contraseña que quieres usar.
+      </p>
+      <input id="forgot-email" type="email" placeholder="Email de tu cuenta"
+        style="width:100%;padding:12px;border-radius:8px;border:1px solid #333;
+               background:#0d0d1a;color:#fff;font-size:14px;margin-bottom:12px">
+      <input id="forgot-pass1" type="password" placeholder="Nueva contraseña (mín. 6 caracteres)"
+        style="width:100%;padding:12px;border-radius:8px;border:1px solid #333;
+               background:#0d0d1a;color:#fff;font-size:14px;margin-bottom:12px">
+      <input id="forgot-pass2" type="password" placeholder="Repite la nueva contraseña"
+        style="width:100%;padding:12px;border-radius:8px;border:1px solid #333;
+               background:#0d0d1a;color:#fff;font-size:14px;margin-bottom:16px">
+      <div id="forgot-error" style="
+        display:none;background:#3d1515;border:1px solid #7a2020;border-radius:8px;
+        padding:10px 12px;color:#f87;font-size:13px;margin-bottom:12px;
+      "></div>
+      <button onclick="doForgotReset()" style="
+        width:100%;padding:13px;border-radius:8px;background:#4f8ef7;
+        border:none;color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+      " id="forgot-btn">Cambiar contraseña</button>
+    </div>
+
+    <!-- Paso 2: éxito -->
+    <div id="forgot-step2" style="display:none;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">✅</div>
+      <h2 style="color:#fff;font-size:20px;margin-bottom:8px">¡Contraseña cambiada!</h2>
+      <p style="color:#888;font-size:14px;margin-bottom:24px">
+        Ya puedes iniciar sesión con tu nueva contraseña.
+      </p>
+      <button onclick="closeForgot()" style="
+        width:100%;padding:13px;border-radius:8px;background:#3ecf8e;
+        border:none;color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+      ">Ir al login</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const SERVER = 'https://merry-joy-production-4504.up.railway.app';
+  const RESET_KEY = 'portero-reset-2026';
+
+  // ── Inyectar enlace "¿Olvidaste tu contraseña?" en el formulario de login ──
+  function injectForgotLink() {
+    // Buscar el botón de "Entrar" o el enlace de "Regístrate"
+    const allLinks = document.querySelectorAll('a, button, span');
+    let inserted = false;
+
+    // Método 1: buscar por texto "¿No tienes cuenta?"
+    for (const el of allLinks) {
+      if (el.textContent.includes('No tienes cuenta') || el.textContent.includes('Regístrate')) {
+        const link = createForgotLink();
+        el.closest('p, div')?.parentNode?.insertBefore(link, el.closest('p, div'));
+        inserted = true;
+        break;
+      }
+    }
+
+    // Método 2: buscar el formulario de login por el botón "Entrar"
+    if (!inserted) {
+      for (const el of allLinks) {
+        if (el.textContent.trim() === 'Entrar') {
+          const link = createForgotLink();
+          el.parentNode?.insertBefore(link, el.nextSibling);
+          inserted = true;
+          break;
+        }
+      }
+    }
+
+    // Método 3: insertar al principio del body como fallback
+    if (!inserted) {
+      const link = createForgotLink();
+      link.style.position = 'fixed';
+      link.style.bottom = '20px';
+      link.style.left = '50%';
+      link.style.transform = 'translateX(-50%)';
+      link.style.zIndex = '9998';
+      document.body.appendChild(link);
+    }
+  }
+
+  function createForgotLink() {
+    const p = document.createElement('p');
+    p.style.cssText = 'text-align:center;margin-top:12px';
+    p.innerHTML = '<a href="#" onclick="openForgot();return false;" style="color:#4f8ef7;font-size:14px;text-decoration:none">¿Olvidaste tu contraseña?</a>';
+    return p;
+  }
+
+  // ── Funciones del modal ──
+  window.openForgot = function() {
+    document.getElementById('forgot-overlay').style.display = 'flex';
+    document.getElementById('forgot-step1').style.display = '';
+    document.getElementById('forgot-step2').style.display = 'none';
+    document.getElementById('forgot-error').style.display = 'none';
+    document.getElementById('forgot-email').focus();
+  };
+
+  window.closeForgot = function() {
+    document.getElementById('forgot-overlay').style.display = 'none';
+    document.getElementById('forgot-email').value = '';
+    document.getElementById('forgot-pass1').value = '';
+    document.getElementById('forgot-pass2').value = '';
+  };
+
+  window.doForgotReset = async function() {
+    const email  = document.getElementById('forgot-email').value.trim();
+    const pass1  = document.getElementById('forgot-pass1').value;
+    const pass2  = document.getElementById('forgot-pass2').value;
+    const errEl  = document.getElementById('forgot-error');
+    const btn    = document.getElementById('forgot-btn');
+
+    errEl.style.display = 'none';
+
+    if (!email) return showForgotError('Introduce tu email');
+    if (!pass1 || pass1.length < 6) return showForgotError('La contraseña debe tener al menos 6 caracteres');
+    if (pass1 !== pass2) return showForgotError('Las contraseñas no coinciden');
+
+    btn.disabled = true;
+    btn.textContent = 'Cambiando...';
+
+    try {
+      const res = await fetch(`${SERVER}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword: pass1, resetKey: RESET_KEY })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        document.getElementById('forgot-step1').style.display = 'none';
+        document.getElementById('forgot-step2').style.display = '';
+        // Rellenar el email en el login si existe el campo
+        const loginEmail = document.querySelector('input[type="email"]');
+        if (loginEmail) loginEmail.value = email;
+      } else {
+        showForgotError(data.error || 'Error al cambiar la contraseña');
+      }
+    } catch(e) {
+      showForgotError('No se pudo conectar con el servidor');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Cambiar contraseña';
+    }
+  };
+
+  function showForgotError(msg) {
+    const el = document.getElementById('forgot-error');
+    el.textContent = msg;
+    el.style.display = '';
+  }
+
+  // Cerrar modal al hacer clic fuera
+  document.getElementById('forgot-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeForgot();
+  });
+
+  // Tecla Enter en los inputs del modal
+  ['forgot-email','forgot-pass1','forgot-pass2'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doForgotReset();
+    });
+  });
+
+  // Inyectar el enlace cuando el DOM esté listo
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectForgotLink);
+  } else {
+    // DOM ya cargado — esperar un tick por si el panel renderiza dinámicamente
+    setTimeout(injectForgotLink, 500);
+  }
+})();
+</script>
+<!-- ============================================================
+     FIN DEL PARCHE
+     ============================================================ -->
+
 </body>
 </html>
