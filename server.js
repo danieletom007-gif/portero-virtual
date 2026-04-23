@@ -132,11 +132,6 @@ async function initDB() {
     // client_id: eliminar FK y NOT NULL del schema original
     `ALTER TABLE portals DROP CONSTRAINT IF EXISTS portals_client_id_fkey`,
     `ALTER TABLE portals ALTER COLUMN client_id DROP NOT NULL`,
-    `ALTER TABLE portals ALTER COLUMN client_id DROP DEFAULT`,
-    `DO $$ BEGIN
-       ALTER TABLE portals DROP CONSTRAINT IF EXISTS portals_client_id_fkey;
-     EXCEPTION WHEN undefined_object THEN NULL;
-     END $$`
     // ✅ CRÍTICO: floors no tiene push_subscription ni created_at en el schema real
     `ALTER TABLE floors ADD COLUMN IF NOT EXISTS push_subscription JSONB`,
     `ALTER TABLE floors ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`
