@@ -128,7 +128,10 @@ async function initDB() {
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
     `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
     // portals: user_id puede no existir si el schema original era diferente
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`
+    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
+    // ✅ CRÍTICO: floors no tiene push_subscription ni created_at en el schema real
+    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS push_subscription JSONB`,
+    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`
   ];
   for (const m of migrations) {
     await pool.query(m).catch(e => console.warn('[migration skip]', e.message));
@@ -211,7 +214,7 @@ app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
 app.get('/api/portals', authMiddleware, async (req, res) => {
   try {
     const r = await pool.query(
-      'SELECT id, name, user_id, COALESCE(address, \'\') AS address, COALESCE(city, \'\') AS city FROM portals WHERE user_id = $1 ORDER BY id',
+      'SELECT id, name, address, city, active, user_id, created_at FROM portals WHERE user_id = $1 ORDER BY created_at DESC',
       [req.user.id]
     );
     res.json(r.rows);
@@ -224,7 +227,7 @@ app.post('/api/portals', authMiddleware, async (req, res) => {
   try {
     const id = genId(16);
     const r = await pool.query(
-      'INSERT INTO portals (id, user_id, name, address, city) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      'INSERT INTO portals (id, user_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,true) RETURNING *',
       [id, req.user.id, name, address || '', city || '']
     );
     res.json(r.rows[0]);
@@ -287,11 +290,11 @@ app.get('/api/portals/:id/floors', authMiddleware, async (req, res) => {
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
 
     const r = await pool.query(
-      `SELECT id, unit_label, number, letter,
+      `SELECT id, unit_label, number, letter, resident_name,
               push_subscription IS NOT NULL AS installed,
               push_subscription,
               created_at
-       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC`,
+       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC NULLS LAST, number ASC NULLS LAST`,
       [req.params.id]
     );
     res.json(r.rows);
@@ -660,6 +663,13 @@ app.get('/debug/schema', async (req, res) => {
       result._portals_user_id = 'OK';
     } catch(e) {
       result._portals_user_id = 'ERROR: ' + e.message;
+    }
+    // Test push_subscription en floors
+    try {
+      await pool.query(`SELECT push_subscription FROM floors LIMIT 1`);
+      result._floors_push_sub = 'OK';
+    } catch(e) {
+      result._floors_push_sub = 'ERROR: ' + e.message;
     }
     res.json(result);
   } catch(e) {
