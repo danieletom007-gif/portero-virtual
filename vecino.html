@@ -272,7 +272,8 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <!-- ════════════ PANTALLA: LLAMADA ════════════ -->
 <div id="screen-call" style="display:none">
-  <video id="remote-video" autoplay playsinline webkit-playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
+  <audio id="visitor-audio" autoplay playsinline></audio>
+<video id="remote-video" autoplay playsinline webkit-playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
 
   <div class="call-overlay">
     <div class="call-top">
@@ -363,7 +364,14 @@ function initApp() {
   loadStoredConfig();
 
   // PRIORIDAD 1: llegamos desde una notificación push con ?contestar=true
-  // Funciona aunque la app no esté en modo standalone
+  // Si myRoom no está en localStorage, reconstruirlo desde los params de la URL
+  if (urlContest) {
+    if (!myRoom && urlPortal && urlFloorId) {
+      myRoom     = `${urlPortal}-${urlFloorId}`;
+      myPortalId = urlPortal;
+      myFloorId  = urlFloorId;
+    }
+  }
   if (urlContest && myRoom && myPortalId) {
     showAllScreens('screen-standby');
     loadPortalInfo();
@@ -798,6 +806,7 @@ async function handleWsMessage(data) {
           .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',sdp:answer,room:myRoom})); })
           .catch(e => console.warn('late offer:', e));
       }
+      break;
     }
 
     case 'ice': {
@@ -870,36 +879,14 @@ async function answerCall() {
       dbg('ICE: ' + pc.iceConnectionState);
     };
 
-    let videoPlayStarted = false;
-    pc.ontrack = (e) => {
-      dbg('ontrack: kind=' + e.track.kind + ' streams=' + e.streams.length);
-      if (!e.streams || !e.streams[0]) { dbg('ERROR: sin stream'); return; }
-      const video = document.getElementById('remote-video');
-      if (!video) return;
-
-      // Siempre actualizar srcObject (es el mismo objeto stream — no-op si igual)
-      video.srcObject = e.streams[0];
-
-      // Llamar play() solo la primera vez para no interrumpir el playback
-      if (!videoPlayStarted) {
-        videoPlayStarted = true;
-        video.muted = true;
-        video.play()
-          .then(() => {
-            video.muted = false;
-            dbg('video play OK');
-          })
-          .catch(err => {
-            dbg('play error: ' + err.message + ' — reintentando en 500ms');
-            setTimeout(() => {
-              video.muted = true;
-              video.play()
-                .then(() => { video.muted = false; dbg('retry OK'); })
-                .catch(e2 => { video.muted = false; dbg('retry fail: ' + e2.message); });
-            }, 500);
-          });
-      } else {
-        dbg('track adicional añadido al stream — play ya activo');
+    pc.ontrack = ({ track, streams }) => {
+      if (track.kind === 'video') {
+        const video = document.getElementById('remote-video');
+        video.srcObject = streams[0];
+        video.play().catch(() => {});
+      }
+      if (track.kind === 'audio') {
+        document.getElementById('visitor-audio').srcObject = streams[0];
       }
     };
 
