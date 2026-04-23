@@ -808,22 +808,8 @@ async function startCall() {
   show('screen-calling');
   setStep(1);
 
-  // Timeout sin respuesta + contador visual
-  let countdownSecs = RING_TIMEOUT_MS / 1000;
-  const countdownEl = document.getElementById('ring-countdown');
-  if (countdownEl) countdownEl.textContent = countdownSecs;
-  const countdownInterval = setInterval(() => {
-    countdownSecs--;
-    if (countdownEl) countdownEl.textContent = countdownSecs;
-    if (countdownSecs <= 0) clearInterval(countdownInterval);
-  }, 1000);
-
-  ringTimeout = setTimeout(() => {
-    clearInterval(countdownInterval);
-    if (ws) ws.close();
-    stopLocalStream();
-    show('screen-noanswer');
-  }, RING_TIMEOUT_MS);
+  // Sin timeout automático — el visitante espera hasta que cancele manualmente
+  // Esto permite que el vecino reciba la notificación push aunque tarde en responder
 
   connectWS();
 }
