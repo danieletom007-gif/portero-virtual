@@ -1,749 +1,1089 @@
-require('dotenv').config();
-const express   = require('express');
-const http      = require('http');
-const WebSocket = require('ws');
-const webpush   = require('web-push');
-const { Pool }  = require('pg');
-const bcrypt    = require('bcryptjs');
-const jwt       = require('jsonwebtoken');
-const cors      = require('cors');
-
-// ─── App & DB ─────────────────────────────────────────────────────────────────
-const app    = express();
-const server = http.createServer(app);
-const wss    = new WebSocket.Server({ server });
-
-// ✅ FIX: Railway interno NO necesita SSL — forzarlo causa crash en initDB
-const dbUrl = process.env.DATABASE_URL || '';
-const pool  = new Pool({
-  connectionString: dbUrl,
-  ssl: dbUrl.includes('railway.internal') || dbUrl.includes('localhost')
-    ? false
-    : { rejectUnauthorized: false }
-});
-
-app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
-app.options("*", cors());
-app.use(express.json());
-
-// ─── VAPID ───────────────────────────────────────────────────────────────────
-try {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL,
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-} catch (e) {
-  console.warn('⚠️  VAPID no configurado:', e.message);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="version" content="2.1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Portero">
+<link rel="manifest" href="/portero-virtual/manifest.json">
+<link rel="apple-touch-icon" href="/portero-virtual/icon-192.png">
+<title>Portero Virtual — Vecino</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0c0c0e;--bg2:#141416;--bg3:#1c1c1f;--bg4:#242428;
+  --text:#f0f0f0;--text2:#a0a0a8;--text3:#606068;
+  --accent:#4f8ef7;--accent2:#3a7ce8;
+  --green:#3ecf8e;--red:#f55;--orange:#f90;
+  --radius:14px;--radius-sm:8px;
 }
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+/* ---- INSTALL ---- */
+#screen-install{background:var(--bg)}
+.install-icon{width:96px;height:96px;border-radius:22px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+.install-icon svg{width:52px;height:52px;fill:#fff}
+.install-title{font-size:26px;font-weight:700;margin-bottom:8px;text-align:center}
+.install-sub{font-size:15px;color:var(--text2);text-align:center;margin-bottom:32px;line-height:1.5}
+.install-steps{width:100%;max-width:340px;margin-bottom:32px}
+.install-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.install-step-num{min-width:28px;height:28px;border-radius:50%;background:var(--bg3);border:1px solid var(--bg4);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--accent)}
+.install-step-text{font-size:14px;color:var(--text2);padding-top:4px;line-height:1.4}
+#install-ios-section,#install-android-section{display:none;width:100%;max-width:340px}
+.ios-hint{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px}
+.btn-primary{width:100%;max-width:340px;padding:16px;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s}
+.btn-primary:active{opacity:.8}
+.btn-secondary{width:100%;max-width:340px;padding:14px;border-radius:var(--radius);background:var(--bg3);color:var(--text);font-size:15px;font-weight:500;border:1px solid var(--bg4);cursor:pointer;transition:opacity .15s;margin-top:10px}
+.btn-secondary:active{opacity:.7}
+/* ---- SETUP ---- */
+#screen-setup{background:var(--bg)}
+.setup-header{width:100%;max-width:380px;margin-bottom:28px}
+.setup-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.setup-sub{font-size:14px;color:var(--text2);line-height:1.4}
+.portal-info-box{width:100%;max-width:380px;background:var(--bg3);border-radius:var(--radius);padding:16px;margin-bottom:20px;min-height:60px}
+.portal-name{font-size:17px;font-weight:600;margin-bottom:3px}
+.portal-addr{font-size:13px;color:var(--text2)}
+.field-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.select-wrap{width:100%;max-width:380px;margin-bottom:20px}
+select{width:100%;padding:14px 16px;border-radius:var(--radius-sm);background:var(--bg3);color:var(--text);font-size:16px;border:1px solid var(--bg4);appearance:none;-webkit-appearance:none}
+select:focus{outline:none;border-color:var(--accent)}
+/* ---- CONFIRM ---- */
+#screen-confirm{background:var(--bg)}
+.confirm-icon{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:32px}
+/* ---- SUCCESS ---- */
+#screen-success{background:var(--bg)}
+.success-icon{width:80px;height:80px;border-radius:50%;background:rgba(62,207,142,.15);display:flex;align-items:center;justify-content:center;margin-bottom:24px;font-size:36px}
+/* ---- STANDBY ---- */
+#screen-standby{background:var(--bg)}
+.standby-top{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;margin-bottom:32px}
+.standby-avatar{width:80px;height:80px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;position:relative}
+.standby-dot{position:absolute;bottom:4px;right:4px;width:14px;height:14px;border-radius:50%;background:var(--green);border:2px solid var(--bg)}
+.standby-label{font-size:18px;font-weight:600;margin-bottom:4px}
+.standby-sub{font-size:13px;color:var(--text2)}
+.standby-actions{width:100%;max-width:360px}
+.standby-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--bg3)}
+.standby-row:last-child{border:none}
+.standby-row-label{font-size:14px;color:var(--text2)}
+.standby-row-val{font-size:14px;font-weight:500}
+.toggle{position:relative;width:48px;height:28px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--bg4);border-radius:14px;transition:.25s}
+.slider:before{content:'';position:absolute;height:22px;width:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s}
+.toggle input:checked+.slider{background:var(--accent)}
+.toggle input:checked+.slider:before{transform:translateX(20px)}
+.quiet-times{display:none;background:var(--bg3);border-radius:var(--radius-sm);padding:14px;margin-top:8px;gap:10px;flex-direction:column}
+.quiet-times.visible{display:flex}
+.time-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius:6px;color:var(--text);padding:6px 8px;font-size:13px;width:110px}
+/* ---- INCOMING ---- */
+#screen-incoming{background:var(--bg)}
+.incoming-ring{width:110px;height:110px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;position:relative;font-size:44px}
+.incoming-ring::before,
+.incoming-ring::after{content:'';position:absolute;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring 2s ease-out infinite}
+.incoming-ring::after{animation-delay:.7s}
+@keyframes ring{0%{width:110px;height:110px;opacity:.6}100%{width:180px;height:180px;opacity:0}}
+.incoming-label{font-size:20px;font-weight:600;margin-bottom:6px}
+.incoming-sub{font-size:14px;color:var(--text2);margin-bottom:36px}
+.incoming-actions{display:flex;gap:20px}
+.btn-answer{width:70px;height:70px;border-radius:50%;background:var(--green);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.btn-answer:active{transform:scale(.9)}
+.btn-reject{width:70px;height:70px;border-radius:50%;background:var(--red);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.btn-reject:active{transform:scale(.9)}
+.btn-icon{width:28px;height:28px;fill:#fff}
+/* ---- CALL ---- */
+#screen-call{position:fixed;inset:0;background:#000;display:flex;flex-direction:column}
+#remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.call-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:env(safe-area-inset-top,20px) 16px env(safe-area-inset-bottom,24px)}
+.call-top{display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,.45);border-radius:12px;backdrop-filter:blur(6px)}
+.call-top-label{font-size:14px;font-weight:500;color:#fff}
+.call-timer{font-size:13px;color:rgba(255,255,255,.6);margin-left:auto}
+.call-bottom{display:flex;justify-content:center;gap:20px;align-items:center}
+.call-btn{width:60px;height:60px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.call-btn:active{transform:scale(.9)}
+.call-btn svg{width:24px;height:24px;fill:#fff}
+.call-btn.hangup{background:var(--red);width:70px;height:70px}
+.call-btn.mute{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
+.call-btn.mute.active{background:var(--orange)}
+.call-btn.chat-toggle{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
+/* Chat panel */
+.chat-panel{position:absolute;bottom:100px;left:12px;right:12px;background:rgba(20,20,22,.9);border-radius:var(--radius);padding:12px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;max-height:240px}
+.chat-panel.open{display:flex}
+.chat-messages{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
+.chat-msg{font-size:13px;padding:6px 10px;border-radius:8px;max-width:85%;line-height:1.4}
+.chat-msg.sent{align-self:flex-end;background:var(--accent);color:#fff}
+.chat-msg.recv{align-self:flex-start;background:var(--bg4);color:var(--text)}
+.chat-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.quick-btn{font-size:12px;padding:5px 10px;border-radius:20px;background:var(--bg4);border:1px solid var(--bg3);color:var(--text);cursor:pointer;white-space:nowrap}
+.quick-btn:active{opacity:.7}
+/* Notification badge sobre chat button */
+.chat-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);font-size:10px;display:none;align-items:center;justify-content:center;color:#fff;font-weight:600}
+.chat-badge.show{display:flex}
+.call-btn-wrap{position:relative}
+/* Status bar */
+.quiet-bar{position:fixed;top:0;left:0;right:0;background:var(--orange);color:#000;font-size:12px;font-weight:600;text-align:center;padding:6px;display:none;z-index:100}
+.quiet-bar.show{display:block}
+</style>
+</head>
+<body>
 
-// ─── JWT ──────────────────────────────────────────────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || 'portero-secret-fallback';
+<div class="quiet-bar" id="quiet-bar">🔕 Modo silencioso activo</div>
 
-function signToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
-}
+<!-- ════════════ PANTALLA: INSTALL ════════════ -->
+<div class="screen" id="screen-install" style="justify-content:flex-start;padding-top:48px">
+  <div class="install-icon">
+    <svg viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+  </div>
+  <p class="install-title">Instala tu portero</p>
+  <p class="install-sub">Para recibir llamadas necesitas instalar esta app en tu móvil</p>
 
-function authMiddleware(req, res, next) {
-  const h     = req.headers.authorization || '';
-  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'No autenticado' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: 'Token inválido' });
-  }
-}
+  <!-- Sección dinámica: se rellena por JS según el dispositivo -->
+  <div id="install-steps-wrap" style="width:100%;max-width:340px;margin-bottom:24px"></div>
 
-// ─── DB init ──────────────────────────────────────────────────────────────────
-async function initDB() {
-  const queries = [
-    `CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      name TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS portals (
-      id TEXT PRIMARY KEY,
-      user_id INT REFERENCES users(id),
-      name TEXT NOT NULL,
-      address TEXT,
-      city TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS floors (
-      id TEXT PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      unit_label TEXT,
-      number INT,
-      letter TEXT,
-      push_subscription JSONB,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`,
-    `CREATE TABLE IF NOT EXISTS call_log (
-      id SERIAL PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      floor_id TEXT,
-      floor_label TEXT,
-      started_at TIMESTAMPTZ DEFAULT NOW(),
-      answered BOOLEAN DEFAULT FALSE,
-      duration_seconds INT
-    )`,
-    `CREATE TABLE IF NOT EXISTS notices (
-      id SERIAL PRIMARY KEY,
-      portal_id TEXT REFERENCES portals(id) ON DELETE CASCADE,
-      user_id INT REFERENCES users(id),
-      type TEXT,
-      title TEXT,
-      body TEXT,
-      sent_at TIMESTAMPTZ DEFAULT NOW(),
-      recipients INT DEFAULT 0
-    )`
-  ];
+  <!-- Botón instalar Android (visible si el navegador lo soporta) -->
+  <button class="btn-primary" id="btn-install-android" style="display:none" onclick="doInstallAndroid()">
+    📲 Instalar app
+  </button>
 
-  for (const q of queries) {
-    await pool.query(q);
-  }
+  <!-- Siempre visible: botón para quien ya instaló o quiere continuar -->
+  <button class="btn-secondary" id="btn-ya-instale" onclick="checkInstalled()" style="margin-top:10px">
+    Ya la instalé — continuar →
+  </button>
+</div>
 
-  // Migraciones seguras — ignorar errores si ya están aplicadas
-  const migrations = [
-    // floors: columnas legacy opcionales
-    `ALTER TABLE floors ALTER COLUMN number DROP NOT NULL`,
-    `ALTER TABLE floors ALTER COLUMN letter DROP NOT NULL`,
-    `ALTER TABLE floors ALTER COLUMN unit_label DROP NOT NULL`,
-    // portals: añadir created_at si no existe (tabla creada por versión anterior)
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`,
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`,
-    // users: añadir created_at si no existe
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
-    // users: algunos servidores anteriores usaban "password" en vez de "password_hash"
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`,
-    // call_log y notices: añadir si faltan columnas
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT`,
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
-    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
-    `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
-    // portals: user_id puede no existir si el schema original era diferente
-    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
-    // client_id: eliminar FK y NOT NULL del schema original
-    `ALTER TABLE portals DROP CONSTRAINT IF EXISTS portals_client_id_fkey`,
-    `ALTER TABLE portals ALTER COLUMN client_id DROP NOT NULL`,
-    // ✅ CRÍTICO: floors no tiene push_subscription ni created_at en el schema real
-    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS push_subscription JSONB`,
-    `ALTER TABLE floors ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`
-  ];
-  for (const m of migrations) {
-    await pool.query(m).catch(e => console.warn('[migration skip]', e.message));
-  }
+<!-- ════════════ PANTALLA: SETUP ════════════ -->
+<div class="screen" id="screen-setup" style="display:none">
+  <div class="setup-header">
+    <p class="setup-title">Configura tu portero</p>
+    <p class="setup-sub">Selecciona tu portal y tu vivienda para empezar a recibir llamadas</p>
+  </div>
 
-  // Si la tabla users tiene columna "password" pero no "password_hash" rellena,
-  // copiar los hashes para no perder acceso
-  await pool.query(`
-    UPDATE users SET password_hash = password
-    WHERE password_hash IS NULL AND password IS NOT NULL
-  `).catch(() => {});
+  <div class="portal-info-box" id="portal-info-box">
+    <div class="portal-name" id="pi-name">Cargando…</div>
+    <div class="portal-addr" id="pi-addr"></div>
+  </div>
 
-  console.log('✅ DB lista');
-}
+  <div class="select-wrap">
+    <div class="field-label">Tu vivienda</div>
+    <select id="sel-floor">
+      <option value="">— Selecciona tu piso —</option>
+    </select>
+  </div>
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function genId(len = 16) {
-  const chars = 'abcdef0123456789';
-  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
+  <button class="btn-primary" onclick="activate()">Activar portero</button>
+</div>
 
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
-app.post('/api/auth/register', async (req, res) => {
-  const { email, password, name } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    const r = await pool.query(
-      'INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id, email, name',
-      [email.toLowerCase().trim(), hash, name || '']
-    );
-    res.json({ token: signToken({ id: r.rows[0].id, email: r.rows[0].email }), user: r.rows[0] });
-  } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Email ya registrado' });
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
+<!-- ════════════ PANTALLA: CONFIRM ════════════ -->
+<div class="screen" id="screen-confirm" style="display:none">
+  <div class="confirm-icon">🏠</div>
+  <p class="install-title" style="margin-bottom:8px" id="confirm-title">Activa tu portero</p>
+  <p class="install-sub" id="confirm-sub">¿Confirmas que quieres activar el portero para esta vivienda?</p>
+  <button class="btn-primary" style="margin-top:24px" onclick="doActivate()">Sí, activar</button>
+  <button class="btn-secondary" onclick="showAllScreens('screen-setup')">Cambiar vivienda</button>
+</div>
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
-  try {
-    const r = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
-    const user = r.rows[0];
-    if (!user) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    if (!user.password_hash) { return res.status(500).json({ error: "password_hash column missing — contacta al admin" }); }
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    res.json({
-      token: signToken({ id: user.id, email: user.email }),
-      user: { id: user.id, email: user.email, name: user.name }
+<!-- ════════════ PANTALLA: SUCCESS ════════════ -->
+<div class="screen" id="screen-success" style="display:none">
+  <div class="success-icon">✅</div>
+  <p class="install-title" style="margin-bottom:12px;text-align:center">¡Todo listo!</p>
+  <p style="font-size:16px;color:var(--text);font-weight:600;text-align:center;margin-bottom:8px" id="success-label">Tu portero está listo</p>
+  <p style="font-size:14px;color:var(--text2);text-align:center;margin-bottom:8px;line-height:1.5;max-width:300px">
+    Ya puedes recibir llamadas del portal en tu móvil
+  </p>
+  <p style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:32px" id="success-countdown">
+    Accediendo al portero en <span id="countdown-num">3</span>s…
+  </p>
+  <button class="btn-primary" onclick="goToStandby()" style="max-width:300px">
+    Abrir mi portero →
+  </button>
+</div>
+
+<!-- ════════════ PANTALLA: STANDBY ════════════ -->
+<div class="screen" id="screen-standby" style="display:none">
+  <div class="standby-top">
+    <div class="standby-avatar">
+      🏠
+      <div class="standby-dot"></div>
+    </div>
+    <div class="standby-label" id="standby-label">Mi portero</div>
+    <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
+  </div>
+
+  <div class="standby-actions">
+    <div class="standby-row">
+      <span class="standby-row-label">Portal</span>
+      <span class="standby-row-val" id="sb-portal">—</span>
+    </div>
+    <div class="standby-row">
+      <span class="standby-row-label">Vivienda</span>
+      <span class="standby-row-val" id="sb-floor">—</span>
+    </div>
+    <div class="standby-row">
+      <span class="standby-row-label">Modo silencioso</span>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-quiet" onchange="toggleQuiet()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="quiet-times" id="quiet-times">
+      <div class="time-row">
+        <span>De</span>
+        <input type="time" id="quiet-from" value="22:00" onchange="saveQuiet()">
+        <span>a</span>
+        <input type="time" id="quiet-to" value="09:00" onchange="saveQuiet()">
+      </div>
+    </div>
+    <div class="standby-row" id="notif-row">
+      <span class="standby-row-label">Notificaciones</span>
+      <span class="standby-row-val" id="sb-notif" style="font-size:13px">—</span>
+    </div>
+    <!-- Banner de activar notificaciones — visible si no están configuradas -->
+    <div id="notif-banner" style="display:none;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:14px;margin-top:12px">
+      <p style="font-size:13px;color:#f97316;font-weight:600;margin-bottom:6px">⚠️ Notificaciones no activadas</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">Sin ellas no recibirás la llamada cuando el móvil esté bloqueado.</p>
+      <button onclick="activarNotificaciones()" style="width:100%;padding:11px;border-radius:10px;background:#f97316;border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+        Activar notificaciones
+      </button>
+    </div>
+  </div>
+
+  <button class="btn-secondary" style="margin-top:24px;max-width:360px" onclick="showAllScreens('screen-setup')">
+    Cambiar configuración
+  </button>
+</div>
+
+<!-- ════════════ PANTALLA: INCOMING ════════════ -->
+<div class="screen" id="screen-incoming" style="display:none">
+  <div class="incoming-ring">📞</div>
+  <p class="incoming-label">Visita en el portal</p>
+  <p class="incoming-sub" id="incoming-sub">Alguien está llamando</p>
+  <div class="incoming-actions">
+    <button class="btn-reject" onclick="rejectCall()">
+      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+    </button>
+    <button class="btn-answer" onclick="answerCall()">
+      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════ PANTALLA: LLAMADA ════════════ -->
+<div id="screen-call" style="display:none">
+  <video id="remote-video" autoplay playsinline webkit-playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
+
+  <div class="call-overlay">
+    <div class="call-top">
+      <span style="font-size:18px">📹</span>
+      <span class="call-top-label" id="call-top-label">En llamada</span>
+      <span class="call-timer" id="call-timer">0:00</span>
+    </div>
+    <div id="webrtc-debug" style="position:absolute;top:60px;left:8px;right:8px;background:rgba(0,0,0,.7);border-radius:8px;padding:8px;font-size:11px;color:#0f0;font-family:monospace;display:none;max-height:120px;overflow-y:auto;z-index:999"></div>
+    <div class="call-bottom">
+      <div class="call-btn-wrap">
+        <button class="call-btn mute" id="btn-mute" onclick="toggleMute()">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+        </button>
+      </div>
+      <button class="call-btn hangup" onclick="hangUp()">
+        <svg viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" transform="rotate(135 12 12)"/></svg>
+      </button>
+      <div class="call-btn-wrap" style="position:relative">
+        <button class="call-btn chat-toggle" onclick="toggleChat()">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+        </button>
+        <div class="chat-badge" id="chat-badge">!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-quick">
+      <button class="quick-btn" onclick="sendChat('Ahora bajo')">Ahora bajo</button>
+      <button class="quick-btn" onclick="sendChat('Deja el paquete en la puerta')">Deja en la puerta</button>
+      <button class="quick-btn" onclick="sendChat('Deja en conserjería')">Conserjería</button>
+      <button class="quick-btn" onclick="sendChat('Vuelve en 10 minutos')">10 minutos</button>
+      <button class="quick-btn" onclick="sendChat('No esperaba visita')">No esperaba visita</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONSTANTES ──────────────────────────────────────────────────────────────
+const SERVER = 'https://merry-joy-production-4504.up.railway.app';
+
+const TURN_CONFIG = {
+  iceTransportPolicy: 'relay',
+  iceServers: [
+    {
+      urls: [
+        'turn:global.relay.metered.ca:443?transport=tcp',
+        'turns:global.relay.metered.ca:443?transport=tcp'
+      ],
+      username:   'e6cb7af71057fddef426ea95',
+      credential: 'el8RlAfkuUr8C3eOA'
+    }
+  ]
+};
+
+// ─── VARIABLES GLOBALES — ¡SOLO UNA DECLARACIÓN DE CADA UNA! ─────────────────
+let myRoom     = '';
+let myPortalId = '';
+let myFloorId  = '';   // ID de BD de la vivienda (nuevo sistema)
+let myFloor    = '';   // número (legacy)
+let myLetter   = '';   // letra (legacy)
+let myLabel    = '';   // texto libre para mostrar
+
+let ws             = null;
+let pc             = null;
+let localStream    = null;
+let callTimerInt   = null;
+let callSeconds    = 0;
+let isMuted        = false;
+let chatOpen       = false;
+let unreadChat     = 0;
+let pendingOffer   = null;   // guarda offer recibido antes de contestar
+let deferredInstall = null;
+
+// ─── URL PARAMS ───────────────────────────────────────────────────────────────
+const urlParams  = new URLSearchParams(location.search);
+const urlPortal  = urlParams.get('portal')    || localStorage.getItem('portero-portal-url') || '';
+const urlFloorId = urlParams.get('floor')     || localStorage.getItem('portero-floor-url')  || '';
+const urlContest = urlParams.get('contestar') === 'true';
+
+// Guardar params si llegaron por URL (enlace del panel)
+if (urlParams.get('portal'))  localStorage.setItem('portero-portal-url', urlParams.get('portal'));
+if (urlParams.get('floor'))   localStorage.setItem('portero-floor-url',  urlParams.get('floor'));
+
+// ─── INIT — síncrona, sin await ───────────────────────────────────────────────
+function initApp() {
+  loadStoredConfig();
+
+  // PRIORIDAD 1: llegamos desde una notificación push con ?contestar=true
+  // Funciona aunque la app no esté en modo standalone
+  if (urlContest && myRoom && myPortalId) {
+    showAllScreens('screen-standby');
+    loadPortalInfo();
+    connectWS(() => {
+      showAllScreens('screen-incoming');
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.put('/api/auth/profile', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('UPDATE users SET name = $1 WHERE id = $2', [req.body.name, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  try {
-    const r = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
-    const ok = await bcrypt.compare(currentPassword, r.rows[0].password_hash);
-    if (!ok) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
-    const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── PORTALES ─────────────────────────────────────────────────────────────────
-app.get('/api/portals', authMiddleware, async (req, res) => {
-  try {
-    const r = await pool.query(
-      `SELECT p.id, p.name, p.address, p.city, p.active, p.user_id, p.created_at,
-              COUNT(f.id) AS floor_count,
-              COUNT(CASE WHEN f.push_subscription IS NOT NULL THEN 1 END) AS active_neighbors
-       FROM portals p
-       LEFT JOIN floors f ON f.portal_id = p.id
-       WHERE p.user_id = $1
-       GROUP BY p.id
-       ORDER BY p.created_at DESC`,
-      [req.user.id]
-    );
-    res.json(r.rows);
-  } catch (e) { console.error('GET /api/portals:', e.message); res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals', authMiddleware, async (req, res) => {
-  const { name, address, city } = req.body;
-  if (!name) return res.status(400).json({ error: 'name requerido' });
-  try {
-    const id = genId(16);
-    const r = await pool.query(
-      'INSERT INTO portals (id, user_id, name, address, city, active) VALUES ($1,$2,$3,$4,$5,true) RETURNING *',
-      [id, req.user.id, name, address || '', city || '']
-    );
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/portals/:id', authMiddleware, async (req, res) => {
-  const { name, address, city } = req.body;
-  try {
-    const r = await pool.query(
-      'UPDATE portals SET name=$1, address=$2, city=$3 WHERE id=$4 AND user_id=$5 RETURNING *',
-      [name, address || '', city || '', req.params.id, req.user.id]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/portals/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM portals WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── PORTAL PÚBLICO ───────────────────────────────────────────────────────────
-app.get('/api/portal/:portalId/public', async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id, name, address, city FROM portals WHERE id = $1',
-      [req.params.portalId]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    const portal = pr.rows[0];
-
-    const fr = await pool.query(
-      `SELECT id, unit_label, number, letter
-       FROM floors WHERE portal_id = $1
-       ORDER BY unit_label ASC`,
-      [req.params.portalId]
-    );
-    portal.floors = fr.rows.map(f => ({
-      id:    f.id,
-      label: f.unit_label || `${f.number || ''}${f.letter || ''}`
-    }));
-    res.json(portal);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── VIVIENDAS ────────────────────────────────────────────────────────────────
-app.get('/api/portals/:id/floors', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const r = await pool.query(
-      `SELECT id, unit_label, number, letter, resident_name,
-              push_subscription IS NOT NULL AS installed,
-              push_subscription,
-              created_at
-       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC NULLS LAST, number ASC NULLS LAST`,
-      [req.params.id]
-    );
-    res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals/:id/floors', authMiddleware, async (req, res) => {
-  const { unit_label, number, letter } = req.body;
-  if (!unit_label) return res.status(400).json({ error: 'unit_label requerido' });
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const floorId = genId(16);
-    const r = await pool.query(
-      'INSERT INTO floors (id, portal_id, unit_label, number, letter) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [floorId, req.params.id, unit_label, number || null, letter || null]
-    );
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
-  const { unit_label } = req.body;
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const r = await pool.query(
-      'UPDATE floors SET unit_label=$1 WHERE id=$2 AND portal_id=$3 RETURNING *',
-      [unit_label, req.params.floorId, req.params.portalId]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Vivienda no encontrada' });
-    res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/portals/:portalId/floors/:floorId', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    await pool.query(
-      'DELETE FROM floors WHERE id=$1 AND portal_id=$2',
-      [req.params.floorId, req.params.portalId]
-    );
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/portals/:portalId/floors/:floorId/reset', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.portalId, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    await pool.query(
-      'UPDATE floors SET push_subscription = NULL WHERE id=$1 AND portal_id=$2',
-      [req.params.floorId, req.params.portalId]
-    );
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── VAPID PUBLIC KEY ─────────────────────────────────────────────────────────
-app.get('/api/vapid-public-key', (req, res) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
-});
-
-// ─── SUBSCRIBE ────────────────────────────────────────────────────────────────
-// ✅ FIX: busca por floorId primero (nuevo), fallback a floorNumber/floorLetter (legacy)
-app.post('/api/subscribe', async (req, res) => {
-  const { portalId, floorId, floorNumber, floorLetter, subscription } = req.body;
-
-  if (!portalId || !subscription) {
-    return res.status(400).json({ error: 'portalId y subscription son obligatorios' });
+    checkQuietMode();
+    return;
   }
 
-  try {
-    let floor;
-
-    if (floorId) {
-      const r = await pool.query(
-        'SELECT id FROM floors WHERE id = $1 AND portal_id = $2',
-        [floorId, portalId]
-      );
-      floor = r.rows[0];
+  // PRIORIDAD 2: app ya configurada (instalada con config guardada)
+  if (isInstalledApp() || (myRoom && myPortalId)) {
+    if (myRoom && myPortalId) {
+      showAllScreens('screen-standby');
+      updateStandbyUI();
+      loadPortalInfo();
+      connectWS();
+    } else if (urlPortal || urlFloorId) {
+      showAllScreens('screen-setup');
+      loadPortalInfo();
+    } else {
+      showAllScreens('screen-setup');
+      const nameEl = document.getElementById('pi-name');
+      const addrEl = document.getElementById('pi-addr');
+      if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+      if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
     }
-
-    if (!floor && (floorNumber !== undefined && floorNumber !== null && floorNumber !== '')) {
-      const r = await pool.query(
-        `SELECT id FROM floors
-         WHERE portal_id = $1 AND number = $2
-           AND (letter = $3 OR letter IS NULL OR letter = '')`,
-        [portalId, floorNumber, floorLetter || '']
-      );
-      floor = r.rows[0];
+  } else {
+    // No instalada — mostrar pantalla de instalación
+    if (urlPortal || urlFloorId) {
+      // Tiene params de URL: ir directo a setup tras marcar como instalada
+      localStorage.setItem('portero-installed', '1');
+      showAllScreens('screen-setup');
+      loadPortalInfo();
+    } else {
+      showAllScreens('screen-install');
+      showInstallSection();
     }
+  }
+  checkQuietMode();
+}
 
-    if (!floor) {
-      return res.status(404).json({
-        error: 'Vivienda no encontrada',
-        debug: { floorId, floorNumber, floorLetter, portalId }
+function isInstalledApp() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.navigator.standalone === true ||
+    localStorage.getItem('portero-installed') === '1'
+  );
+}
+
+function loadStoredConfig() {
+  myRoom     = localStorage.getItem('portero-room')     || '';
+  myPortalId = localStorage.getItem('portero-portal')   || urlPortal || '';
+  myFloorId  = localStorage.getItem('portero-floorId')  || urlFloorId || '';
+  myFloor    = localStorage.getItem('portero-floor')    || '';
+  myLetter   = localStorage.getItem('portero-letter')   || '';
+  myLabel    = localStorage.getItem('portero-label')    || '';
+}
+
+// ─── PANTALLAS ────────────────────────────────────────────────────────────────
+function showAllScreens(activeId) {
+  const screens = [
+    'screen-install',
+    'screen-setup',
+    'screen-confirm',
+    'screen-success',
+    'screen-standby',
+    'screen-incoming',
+    'screen-call'
+  ];
+  screens.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === activeId) ? '' : 'none';
+  });
+}
+
+// ─── INSTALL ──────────────────────────────────────────────────────────────────
+function showInstallSection() {
+  const ua      = navigator.userAgent.toLowerCase();
+  const isIos   = /iphone|ipad|ipod/.test(ua);
+  const isAndroid = /android/.test(ua);
+  const wrap    = document.getElementById('install-steps-wrap');
+  if (!wrap) return;
+
+  if (isIos) {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">1.</strong> Pulsa el botón
+            <strong style="color:var(--text)">Compartir ⎙</strong> en la barra de Safari</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">2.</strong> Selecciona
+            <strong style="color:var(--text)">"Añadir a pantalla de inicio"</strong></div>
+          <div><strong style="color:var(--text)">3.</strong> Abre la app desde tu pantalla de inicio</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,200,0,.12);border-radius:10px;padding:12px;font-size:13px;color:#f0c040;margin-bottom:8px">
+        💡 Debe abrirse desde <strong>Safari</strong>. Si usas Chrome en iPhone, cópiala en Safari primero.
+      </div>`;
+  } else if (isAndroid) {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">1.</strong>
+            Pulsa <strong style="color:var(--text)">"Instalar app"</strong> aquí abajo</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">2.</strong>
+            Acepta cuando el sistema te lo pida</div>
+          <div><strong style="color:var(--text)">3.</strong>
+            Abre la app instalada y configura tu piso</div>
+        </div>
+      </div>`;
+    // Mostrar botón instalar si el navegador lo soporta
+    const btn = document.getElementById('btn-install-android');
+    if (btn) btn.style.display = '';
+  } else {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6">
+        Abre este enlace desde el navegador de tu móvil (Chrome en Android o Safari en iPhone)
+        para poder instalar la app.
+      </div>`;
+  }
+}
+
+function doInstallAndroid() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+  } else {
+    // Sin prompt disponible: guiar al usuario al menú del navegador
+    alert('Pulsa el menú ⋮ de tu navegador y selecciona "Añadir a pantalla de inicio" o "Instalar app"');
+  }
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  const btn = document.getElementById('btn-install-android');
+  if (btn) btn.onclick = () => deferredInstall.prompt();
+});
+
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('portero-installed', '1');
+  checkInstalled();
+});
+
+function checkInstalled() {
+  localStorage.setItem('portero-installed', '1');
+  goToSetup();
+}
+
+function goToSetup() {
+  localStorage.setItem('portero-installed', '1');
+  showAllScreens('screen-setup');
+  loadPortalInfo();
+}
+
+// ─── PORTAL INFO ──────────────────────────────────────────────────────────────
+async function loadPortalInfo() {
+  const pid = urlPortal || localStorage.getItem('portero-portal-url') || myPortalId;
+  if (!pid) {
+    const nameEl = document.getElementById('pi-name');
+    const addrEl = document.getElementById('pi-addr');
+    if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+    if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SERVER}/api/portal/${pid}/public`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const nameEl = document.getElementById('pi-name');
+    const addrEl = document.getElementById('pi-addr');
+    if (nameEl) nameEl.textContent = data.name || 'Portal';
+    if (addrEl) addrEl.textContent = [data.address, data.city].filter(Boolean).join(', ');
+
+    // Rellenar selector de viviendas
+    const sel = document.getElementById('sel-floor');
+    if (sel && data.floors) {
+      sel.innerHTML = '<option value="">— Selecciona tu piso —</option>';
+      data.floors.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.label;
+        if (f.id === urlFloorId || f.id === myFloorId) opt.selected = true;
+        sel.appendChild(opt);
       });
     }
 
-    await pool.query(
-      'UPDATE floors SET push_subscription = $1 WHERE id = $2',
-      [JSON.stringify(subscription), floor.id]
-    );
-
-    console.log(`✅ Push registrado — floor ${floor.id} (portal ${portalId})`);
-    res.json({ ok: true, floorId: floor.id });
+    // Guardar portalId
+    myPortalId = data.id || pid;
+    localStorage.setItem('portero-portal', myPortalId);
 
   } catch (e) {
-    console.error('subscribe error:', e);
-    res.status(500).json({ error: e.message });
+    console.error('loadPortalInfo error:', e);
+    const nameEl = document.getElementById('pi-name');
+    if (nameEl) nameEl.textContent = 'Error al cargar portal';
   }
-});
+}
 
-// ─── AVISOS PUSH ──────────────────────────────────────────────────────────────
-app.post('/api/portals/:id/notify', authMiddleware, async (req, res) => {
-  const { title, body, type, floorIds } = req.body;
+// ─── ACTIVATE ─────────────────────────────────────────────────────────────────
+function activate() {
+  const sel = document.getElementById('sel-floor');
+  if (!sel || !sel.value) {
+    alert('Selecciona tu vivienda');
+    return;
+  }
+  const selectedOption = sel.options[sel.selectedIndex];
+  myFloorId = sel.value;
+  myLabel   = selectedOption ? selectedOption.textContent : sel.value;
+  doActivate();
+}
+
+async function doActivate() {
+  if (!myFloorId || !myPortalId) {
+    showAllScreens('screen-setup');
+    return;
+  }
+
+  // ── PASO 1: Pedir permiso de notificaciones INMEDIATAMENTE ──────────────
+  // Debe ser lo primero antes de cualquier await — el navegador exige
+  // que la llamada ocurra durante el gesto del usuario (tap en botón)
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch(e) {}
+  }
+
+  // ── PASO 2: Pedir micrófono — también requiere gesto de usuario ──────────
   try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    console.warn('Micrófono no disponible:', e);
+  }
 
-    let query  = 'SELECT id, push_subscription FROM floors WHERE portal_id = $1 AND push_subscription IS NOT NULL';
-    const params = [req.params.id];
-    if (floorIds && floorIds.length > 0) {
-      query += ` AND id = ANY($2::text[])`;
-      params.push(floorIds);
+  // ── PASO 3: Mostrar pantalla de espera ───────────────────────────────────
+  showAllScreens('screen-success');
+  const el = document.getElementById('success-label');
+  if (el) el.textContent = 'Configurando tu portero…';
+  const cd = document.getElementById('success-countdown');
+  if (cd) cd.textContent = 'Por favor espera…';
+  const successIcon = document.querySelector('#screen-success .success-icon');
+  if (successIcon) successIcon.textContent = '⏳';
+
+  // ── PASO 4: Guardar configuración ────────────────────────────────────────
+  myRoom = `${myPortalId}-${myFloorId}`;
+  localStorage.setItem('portero-room',    myRoom);
+  localStorage.setItem('portero-portal',  myPortalId);
+  localStorage.setItem('portero-floorId', myFloorId);
+  localStorage.setItem('portero-floor',   myFloor);
+  localStorage.setItem('portero-letter',  myLetter);
+  localStorage.setItem('portero-label',   myLabel);
+
+  // ── PASO 5: Registrar suscripción push ───────────────────────────────────
+  await setupPush();
+
+  showActivationSuccess();
+}
+
+function showActivationSuccess() {
+  // Restaurar icono (puede estar en ⏳ si vino de doActivate)
+  const icon = document.querySelector('#screen-success .success-icon');
+  if (icon) icon.textContent = '✅';
+
+  const el = document.getElementById('success-label');
+  if (el) el.textContent = `Has configurado correctamente "${myLabel}"`;
+
+  const perm = ('Notification' in window) ? Notification.permission : 'default';
+  const cd   = document.getElementById('success-countdown');
+  if (cd) {
+    cd.innerHTML = perm === 'granted'
+      ? '🔔 Notificaciones activas — recibirás llamadas aunque el móvil esté bloqueado'
+      : '⚠️ Podrás recibir llamadas solo con la app abierta. Activa las notificaciones desde ajustes.';
+  }
+
+  showAllScreens('screen-success');
+  // Cuenta atrás de 4 segundos
+  let secs = 4;
+  const numEl = document.getElementById('countdown-num');
+  if (numEl) numEl.textContent = secs;
+  const interval = setInterval(() => {
+    secs--;
+    if (numEl) numEl.textContent = secs;
+    if (secs <= 0) {
+      clearInterval(interval);
+      goToStandby();
+    }
+  }, 1000);
+}
+
+function goToStandby() {
+  showAllScreens('screen-standby');
+  updateStandbyUI();
+  connectWS();
+}
+
+function updateStandbyUI() {
+  const sbPortal = document.getElementById('sb-portal');
+  const sbFloor  = document.getElementById('sb-floor');
+  const sbLabel  = document.getElementById('standby-label');
+  const sbSub    = document.getElementById('standby-sub');
+
+  if (sbPortal) sbPortal.textContent = myPortalId ? myPortalId.slice(0,8) + '…' : '—';
+  if (sbFloor)  sbFloor.textContent  = myLabel || myFloorId || '—';
+  if (sbLabel)  sbLabel.textContent  = myLabel || 'Mi portero';
+  if (sbSub)    sbSub.textContent    = 'Esperando llamadas…';
+
+  // Estado notificaciones
+  const sbNotif  = document.getElementById('sb-notif');
+  const banner   = document.getElementById('notif-banner');
+  if ('Notification' in window) {
+    const perm = Notification.permission;
+    if (sbNotif) sbNotif.textContent = perm === 'granted' ? '✅ Activas' :
+                                       perm === 'denied'  ? '❌ Bloqueadas (ajustes del móvil)' : '⚠️ Sin configurar';
+    if (banner) banner.style.display = (perm !== 'granted') ? '' : 'none';
+  } else {
+    if (sbNotif) sbNotif.textContent = 'No soportadas';
+  }
+}
+
+// ─── PUSH ─────────────────────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function setupPush() {
+  if (!myPortalId || !('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/portero-virtual/sw.js');
+    await navigator.serviceWorker.ready;
+
+    // El permiso ya se pidió en doActivate() — aquí solo verificamos
+    const permission = Notification.permission;
+    if (permission !== 'granted') {
+      console.warn('Notificaciones no concedidas:', permission);
+      return;
     }
 
-    const r = await pool.query(query, params);
-    let sent = 0;
-    const payload = JSON.stringify({ title: title || 'Aviso del portal', body: body || '', type: type || 'info' });
+    const vapidRes = await fetch(`${SERVER}/api/vapid-public-key`);
+    const { publicKey } = await vapidRes.json();
 
-    for (const f of r.rows) {
-      try {
-        const sub = typeof f.push_subscription === 'string'
-          ? JSON.parse(f.push_subscription)
-          : f.push_subscription;
-        await webpush.sendNotification(sub, payload);
-        sent++;
-      } catch (e) {
-        console.warn(`Push failed floor ${f.id}:`, e.statusCode || e.message);
-        if (e.statusCode === 410) {
-          await pool.query('UPDATE floors SET push_subscription = NULL WHERE id = $1', [f.id]);
-        }
-      }
-    }
-
-    await pool.query(
-      'INSERT INTO notices (portal_id, user_id, type, title, body, recipients) VALUES ($1,$2,$3,$4,$5,$6)',
-      [req.params.id, req.user.id, type || 'info', title, body, sent]
-    );
-    res.json({ ok: true, sent, total: r.rows.length });
-  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/portals/:id/notices', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-    const r = await pool.query(
-      'SELECT * FROM notices WHERE portal_id=$1 ORDER BY sent_at DESC LIMIT 50',
-      [req.params.id]
-    );
-    res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── ESTADÍSTICAS ─────────────────────────────────────────────────────────────
-app.get('/api/portals/:id/stats', authMiddleware, async (req, res) => {
-  try {
-    const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
-      [req.params.id, req.user.id]
-    );
-    if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
-
-    const [tf, ins, tc, rc] = await Promise.all([
-      pool.query('SELECT COUNT(*) FROM floors WHERE portal_id=$1', [req.params.id]),
-      pool.query('SELECT COUNT(*) FROM floors WHERE portal_id=$1 AND push_subscription IS NOT NULL', [req.params.id]),
-      pool.query('SELECT COUNT(*) FROM call_log WHERE portal_id=$1', [req.params.id]),
-      pool.query(
-        `SELECT cl.*, f.unit_label as floor_label
-         FROM call_log cl
-         LEFT JOIN floors f ON f.id = cl.floor_id
-         WHERE cl.portal_id=$1
-         ORDER BY cl.started_at DESC LIMIT 20`,
-        [req.params.id]
-      )
-    ]);
-
-    res.json({
-      totalFloors:     parseInt(tf.rows[0].count),
-      installedFloors: parseInt(ins.rows[0].count),
-      totalCalls:      parseInt(tc.rows[0].count),
-      recentCalls:     rc.rows
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+
+    // ✅ CRÍTICO: enviar floorId (ID de BD de la vivienda)
+    const res = await fetch(`${SERVER}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        portalId:    myPortalId,
+        floorId:     myFloorId,    // ← ID de BD — campo principal
+        floorNumber: myFloor,       // ← legacy (puede ser vacío)
+        floorLetter: myLetter,      // ← legacy (puede ser vacío)
+        subscription
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    console.log('✅ Push suscripción guardada para floorId:', myFloorId);
+  } catch (e) {
+    console.error('setupPush error:', e);
+  }
+}
 
 // ─── WEBSOCKET ────────────────────────────────────────────────────────────────
-const rooms = new Map();
-
-function getRoomClients(room) {
-  if (!rooms.has(room)) rooms.set(room, new Set());
-  return rooms.get(room);
-}
-
-function broadcast(room, data, exclude = null) {
-  if (!room) return;
-  const clients = getRoomClients(room);
-  const msg = JSON.stringify(data);
-  for (const ws of clients) {
-    if (ws !== exclude && ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
-    }
+function connectWS(onReady) {
+  if (!myRoom) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    if (onReady) onReady();
+    return;
   }
-}
 
-wss.on('connection', (ws) => {
-  ws.room     = null;
-  ws.role     = null;
-  ws.portalId = null;
-  ws.floorId  = null;
+  const wsUrl = SERVER.replace('https://', 'wss://').replace('http://', 'ws://');
+  ws = new WebSocket(wsUrl);
 
-  ws.on('message', async (raw) => {
+  ws.onopen = () => {
+    console.log('WS conectado');
+    ws.send(JSON.stringify({
+      type:       'join',
+      room:       myRoom,
+      role:       'neighbor',
+      portalId:   myPortalId,
+      floorId:    myFloorId,
+      floorLabel: myLabel
+    }));
+    if (onReady) onReady();
+  };
+
+  ws.onmessage = async (e) => {
     let data;
-    try { data = JSON.parse(raw); } catch { return; }
+    try { data = JSON.parse(e.data); } catch { return; }
+    await handleWsMessage(data);
+  };
 
-    switch (data.type) {
+  ws.onclose = () => {
+    console.log('WS cerrado, reconectando en 5s…');
+    setTimeout(() => {
+      if (myRoom) connectWS();
+    }, 5000);
+  };
 
-      case 'join': {
-        const { room, role, portalId, floorId, floorLabel } = data;
-        if (!room) return;
+  ws.onerror = (e) => console.error('WS error:', e);
+}
 
-        // Salir de sala anterior
-        if (ws.room) {
-          const prev = getRoomClients(ws.room);
-          prev.delete(ws);
-          if (prev.size === 0) rooms.delete(ws.room);
-        }
+async function handleWsMessage(data) {
+  switch (data.type) {
 
-        ws.room      = room;
-        ws.role      = role;
-        ws.portalId  = portalId;
-        ws.floorId   = floorId;
-        ws.floorLabel = floorLabel;
-
-        getRoomClients(room).add(ws);
-        console.log(`[WS] join → room:${room} role:${role}`);
-
-        if (role === 'visitor') {
-          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room }, ws);
-
-          // Log de llamada
-          try {
-            await pool.query(
-              'INSERT INTO call_log (portal_id, floor_id, floor_label) VALUES ($1,$2,$3)',
-              [portalId, floorId || null, floorLabel || '']
-            );
-          } catch (e) { console.warn('call_log:', e.message); }
-
-          // Push al vecino
-          if (portalId && floorId) {
-            try {
-              const fr = await pool.query(
-                'SELECT push_subscription, unit_label FROM floors WHERE id=$1 AND portal_id=$2',
-                [floorId, portalId]
-              );
-              const floor = fr.rows[0];
-              if (floor && floor.push_subscription) {
-                const sub = typeof floor.push_subscription === 'string'
-                  ? JSON.parse(floor.push_subscription)
-                  : floor.push_subscription;
-                const vecUrl = `https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=${portalId}&floor=${floorId}&contestar=true`;
-                await webpush.sendNotification(sub, JSON.stringify({
-                  title: '🔔 Visita en el portal',
-                  body:  `Alguien llama a ${floorLabel || floor.unit_label || ''}`,
-                  url:   vecUrl,
-                  portalId, floorId, room
-                })).catch(async (e) => {
-                  console.warn('push send:', e.statusCode);
-                  if (e.statusCode === 410) {
-                    await pool.query('UPDATE floors SET push_subscription = NULL WHERE id=$1', [floorId]);
-                  }
-                });
-              }
-            } catch (e) { console.warn('push lookup:', e.message); }
-          }
-        }
-
-        if (role === 'neighbor') {
-          broadcast(room, { type: 'neighbor-ready', room }, ws);
-        }
-        break;
+    case 'visitor-calling': {
+      if (isQuietMode()) {
+        showQuietBar();
       }
-
-      case 'neighbor-ready':
-      case 'offer':
-      case 'answer':
-      case 'ice':
-      case 'busy':
-      case 'hangup':
-        broadcast(ws.room, data, ws);
-        break;
-
-      case 'chat':
-        broadcast(ws.room, { type: 'chat', message: data.message, from: ws.role }, ws);
-        break;
-
-      default:
-        console.warn('[WS] tipo desconocido:', data.type);
+      pendingOffer = null;
+      showAllScreens('screen-incoming');
+      const sub = document.getElementById('incoming-sub');
+      if (sub) sub.textContent = `Visita para ${myLabel}`;
+      playRingTone();
+      break;
     }
-  });
 
-  ws.on('close', () => {
-    if (ws.room) {
-      const clients = getRoomClients(ws.room);
-      clients.delete(ws);
-      broadcast(ws.room, { type: 'hangup', reason: 'disconnect' });
-      if (clients.size === 0) rooms.delete(ws.room);
+    case 'offer': {
+      pendingOffer = data.sdp || data.offer;
+      // Si ya contestamos pero el offer llegó tarde, procesarlo ahora
+      if (pc && pc.signalingState === 'stable') {
+        pc.setRemoteDescription(new RTCSessionDescription(data.sdp || data.offer))
+          .then(() => pc.createAnswer())
+          .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',sdp:answer,room:myRoom})); })
+          .catch(e => console.warn('late offer:', e));
+      }
     }
-  });
 
-  ws.on('error', (e) => console.error('[WS] error:', e.message));
-});
+    case 'ice': {
+      if (pc && data.candidate) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch {}
+      }
+      break;
+    }
 
+    case 'hangup': {
+      endCall();
+      break;
+    }
 
-// ─── RESET CONTRASEÑA TEMPORAL (eliminar tras recuperar acceso) ───────────────
-// Uso: POST /reset-password  { email, newPassword, resetKey }
-// resetKey debe coincidir con RESET_KEY en env vars o con el valor hardcoded de abajo
-app.post('/reset-password', async (req, res) => {
-  const { email, newPassword, resetKey } = req.body;
-  const VALID_KEY = process.env.RESET_KEY || 'portero-reset-2026';
-  if (resetKey !== VALID_KEY) {
-    return res.status(403).json({ error: 'resetKey incorrecto' });
+    case 'chat': {
+      receiveChatMessage(data.message);
+      break;
+    }
   }
-  if (!email || !newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'email y newPassword (min 6 chars) requeridos' });
-  }
+}
+
+// ─── LLAMADA ──────────────────────────────────────────────────────────────────
+function playRingTone() {
   try {
-    // Buscar el usuario primero para dar error claro
-    const userCheck = await pool.query(
-      'SELECT id, email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))',
-      [email]
-    );
-    console.log(`[RESET] Buscando email: "${email}" — encontrado: ${userCheck.rows.length > 0}`);
-    if (userCheck.rows.length === 0) {
-      // Listar emails existentes en log para diagnóstico
-      const allEmails = await pool.query('SELECT email FROM users');
-      console.log(`[RESET] Emails en BD: ${allEmails.rows.map(r=>r.email).join(', ')}`);
-      return res.status(404).json({ error: 'Email no encontrado', hint: 'Revisa que el email sea exactamente el que usaste al registrarte' });
+    if (isQuietMode()) return;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(freq, start, dur) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur);
+      g.gain.setValueAtTime(0.3, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
     }
-    const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [hash, userCheck.rows[0].id]
-    );
-    console.log(`[RESET] ✅ Contraseña actualizada para ${userCheck.rows[0].email}`);
-    res.json({ ok: true, email: userCheck.rows[0].email, message: 'Contraseña actualizada.' });
+    for (let i = 0; i < 3; i++) {
+      beep(880, i * 0.8, 0.3);
+      beep(660, i * 0.8 + 0.35, 0.3);
+    }
+  } catch {}
+}
+
+function dbg(msg) {
+  console.log('[WebRTC]', msg);
+  const el = document.getElementById('webrtc-debug');
+  if (el) { el.style.display = ''; el.innerHTML += msg + '<br>'; el.scrollTop = el.scrollHeight; }
+}
+
+async function answerCall() {
+  showAllScreens('screen-call');
+  startCallTimer();
+  dbg('answerCall iniciado');
+
+  try {
+    if (!localStream) {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
+    dbg('micrófono OK');
+
+    pc = new RTCPeerConnection(TURN_CONFIG);
+
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    pc.onconnectionstatechange = () => {
+      dbg('conexión: ' + pc.connectionState);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      dbg('ICE: ' + pc.iceConnectionState);
+    };
+
+    pc.ontrack = (e) => {
+      dbg('ontrack: kind=' + e.track.kind + ' streams=' + e.streams.length);
+      if (!e.streams || !e.streams[0]) { dbg('ERROR: sin stream'); return; }
+      const video = document.getElementById('remote-video');
+      if (!video) return;
+      // Asignar srcObject solo una vez — la segunda llamada (audio/video)
+      // interrumpiría el play() en curso causando pantalla negra
+      if (video.srcObject) {
+        dbg('srcObject ya asignado — skip');
+        return;
+      }
+      video.srcObject = e.streams[0];
+      video.muted = true;
+      video.play()
+        .then(() => {
+          video.muted = false;
+          dbg('video.play() OK — vídeo activo');
+        })
+        .catch(err => {
+          dbg('play() error: ' + err.message + ' — reintentando');
+          // Reintentar tras breve pausa
+          setTimeout(() => {
+            video.play()
+              .then(() => { video.muted = false; dbg('retry OK'); })
+              .catch(e2 => { video.muted = false; dbg('retry fail: ' + e2.message); });
+          }, 300);
+        });
+    };
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: myRoom }));
+        dbg('ICE candidate enviado');
+      }
+    };
+
+    // Avisar al visitante que estamos listos — él enviará el offer
+    ws.send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
+    dbg('neighbor-ready enviado, pendingOffer=' + !!pendingOffer);
+
+    // Si el offer ya llegó antes de contestar, procesarlo ahora
+    if (pendingOffer) {
+      dbg('procesando pendingOffer...');
+      await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
+      dbg('setRemoteDescription OK');
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: myRoom }));
+      dbg('answer enviado');
+    } else {
+      dbg('sin pendingOffer — esperando offer del visitante');
+    }
+
+    const topLabel = document.getElementById('call-top-label');
+    if (topLabel) topLabel.textContent = myLabel || 'En llamada';
+
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    dbg('ERROR: ' + e.message);
+    console.error('answerCall error:', e);
+    endCall();
   }
-});
+}
 
-// ─── Health ───────────────────────────────────────────────────────────────────
-app.get('/',       (req, res) => res.json({ status: 'ok', version: '2.3', time: new Date().toISOString() }));
-app.get('/health', (req, res) => res.json({ ok: true }));
-
-// ─── DEBUG schema (eliminar tras diagnosticar) ────────────────────────────────
-app.get('/debug/schema', async (req, res) => {
-  try {
-    const tables = ['users', 'portals', 'floors'];
-    const result = {};
-    for (const t of tables) {
-      const r = await pool.query(
-        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public' ORDER BY ordinal_position`,
-        [t]
-      );
-      result[t] = r.rows.map(x => x.column_name);
-    }
-    try {
-      await pool.query(`SELECT id, name, user_id FROM portals LIMIT 1`);
-      result._portals_user_id = 'OK';
-    } catch(e) {
-      result._portals_user_id = 'ERROR: ' + e.message;
-    }
-    // Test push_subscription en floors
-    try {
-      await pool.query(`SELECT push_subscription FROM floors LIMIT 1`);
-      result._floors_push_sub = 'OK';
-    } catch(e) {
-      result._floors_push_sub = 'ERROR: ' + e.message;
-    }
-    res.json(result);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
+function rejectCall() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'busy', room: myRoom }));
   }
-});
+  showAllScreens('screen-standby');
+}
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT) || 3000;
+function hangUp() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'hangup', room: myRoom }));
+  }
+  endCall();
+}
 
-console.log(`[BOOT] DATABASE_URL configurada: ${process.env.DATABASE_URL ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] VAPID_PUBLIC_KEY configurada: ${process.env.VAPID_PUBLIC_KEY ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] JWT_SECRET configurada: ${process.env.JWT_SECRET ? 'SÍ' : 'NO'}`);
-console.log(`[BOOT] Iniciando en puerto ${PORT}...`);
+function endCall() {
+  if (pc) { pc.close(); pc = null; }
+  if (callTimerInt) { clearInterval(callTimerInt); callTimerInt = null; }
+  pendingOffer = null;
+  isMuted = false;
+  chatOpen = false;
+  unreadChat = 0;
+  const badge = document.getElementById('chat-badge');
+  if (badge) { badge.classList.remove('show'); badge.textContent = '!'; }
+  const chatPanel = document.getElementById('chat-panel');
+  if (chatPanel) chatPanel.classList.remove('open');
+  showAllScreens('screen-standby');
+}
 
-// initDB primero, luego escuchar — evita race condition con migraciones
-initDB()
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Portero Virtual v2.3 — puerto ${PORT} activo`);
-    });
-  })
-  .catch(e => {
-    // Si falla initDB, arrancar de todas formas pero logueando el error
-    console.error('[BOOT] ❌ DB init error:', e.message);
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`⚠️  Portero Virtual v2.3 — puerto ${PORT} (DB con errores)`);
-    });
-  });
+function startCallTimer() {
+  callSeconds = 0;
+  const el = document.getElementById('call-timer');
+  callTimerInt = setInterval(() => {
+    callSeconds++;
+    const m = Math.floor(callSeconds / 60);
+    const s = String(callSeconds % 60).padStart(2, '0');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  if (localStream) {
+    localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+  }
+  const btn = document.getElementById('btn-mute');
+  if (btn) btn.classList.toggle('active', isMuted);
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.toggle('open', chatOpen);
+  if (chatOpen) {
+    unreadChat = 0;
+    const badge = document.getElementById('chat-badge');
+    if (badge) { badge.classList.remove('show'); }
+  }
+}
+
+function sendChat(message) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'chat', message, room: myRoom }));
+  appendChatMsg(message, 'sent');
+}
+
+function receiveChatMessage(message) {
+  appendChatMsg(message, 'recv');
+  if (!chatOpen) {
+    unreadChat++;
+    const badge = document.getElementById('chat-badge');
+    if (badge) {
+      badge.textContent = unreadChat > 9 ? '!' : String(unreadChat);
+      badge.classList.add('show');
+    }
+  }
+}
+
+function appendChatMsg(text, type) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `chat-msg ${type}`;
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ─── MODO SILENCIOSO ──────────────────────────────────────────────────────────
+async function activarNotificaciones() {
+  await setupPush();
+  updateStandbyUI();
+}
+
+function toggleQuiet() {
+  const checked = document.getElementById('toggle-quiet').checked;
+  const times   = document.getElementById('quiet-times');
+  if (times) times.classList.toggle('visible', checked);
+  saveQuiet();
+}
+
+function saveQuiet() {
+  const checked = document.getElementById('toggle-quiet').checked;
+  const from    = document.getElementById('quiet-from').value;
+  const to      = document.getElementById('quiet-to').value;
+  localStorage.setItem('portero-quiet',      checked ? '1' : '0');
+  localStorage.setItem('portero-quiet-from', from);
+  localStorage.setItem('portero-quiet-to',   to);
+}
+
+function checkQuietMode() {
+  const stored = localStorage.getItem('portero-quiet') === '1';
+  const toggle = document.getElementById('toggle-quiet');
+  const times  = document.getElementById('quiet-times');
+  const from   = localStorage.getItem('portero-quiet-from') || '22:00';
+  const to     = localStorage.getItem('portero-quiet-to')   || '09:00';
+
+  if (toggle) toggle.checked = stored;
+  if (times)  times.classList.toggle('visible', stored);
+
+  const fromEl = document.getElementById('quiet-from');
+  const toEl   = document.getElementById('quiet-to');
+  if (fromEl) fromEl.value = from;
+  if (toEl)   toEl.value   = to;
+}
+
+function isQuietMode() {
+  if (localStorage.getItem('portero-quiet') !== '1') return false;
+  const from = localStorage.getItem('portero-quiet-from') || '22:00';
+  const to   = localStorage.getItem('portero-quiet-to')   || '09:00';
+  const now  = new Date();
+  const cur  = now.getHours() * 60 + now.getMinutes();
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  const fMin = fh * 60 + fm;
+  const tMin = th * 60 + tm;
+  return fMin < tMin
+    ? (cur >= fMin && cur < tMin)
+    : (cur >= fMin || cur < tMin);
+}
+
+function showQuietBar() {
+  const bar = document.getElementById('quiet-bar');
+  if (bar) {
+    bar.classList.add('show');
+    setTimeout(() => bar.classList.remove('show'), 4000);
+  }
+}
+
+// ─── ARRANCAR ─────────────────────────────────────────────────────────────────
+initApp();
+</script>
+</body>
+</html>
