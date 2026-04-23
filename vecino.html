@@ -280,6 +280,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
       <span class="call-top-label" id="call-top-label">En llamada</span>
       <span class="call-timer" id="call-timer">0:00</span>
     </div>
+    <div id="webrtc-debug" style="position:absolute;top:60px;left:8px;right:8px;background:rgba(0,0,0,.7);border-radius:8px;padding:8px;font-size:11px;color:#0f0;font-family:monospace;display:none;max-height:120px;overflow-y:auto;z-index:999"></div>
     <div class="call-bottom">
       <div class="call-btn-wrap">
         <button class="call-btn mute" id="btn-mute" onclick="toggleMute()">
@@ -827,30 +828,49 @@ function playRingTone() {
   } catch {}
 }
 
+function dbg(msg) {
+  console.log('[WebRTC]', msg);
+  const el = document.getElementById('webrtc-debug');
+  if (el) { el.style.display = ''; el.innerHTML += msg + '<br>'; el.scrollTop = el.scrollHeight; }
+}
+
 async function answerCall() {
   showAllScreens('screen-call');
   startCallTimer();
+  dbg('answerCall iniciado');
 
   try {
     if (!localStream) {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     }
+    dbg('micrófono OK');
 
     pc = new RTCPeerConnection(TURN_CONFIG);
 
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
+    pc.onconnectionstatechange = () => {
+      dbg('conexión: ' + pc.connectionState);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      dbg('ICE: ' + pc.iceConnectionState);
+    };
+
     pc.ontrack = (e) => {
-      if (!e.streams || !e.streams[0]) return;
+      dbg('ontrack: kind=' + e.track.kind + ' streams=' + e.streams.length);
+      if (!e.streams || !e.streams[0]) { dbg('ERROR: sin stream'); return; }
       const video = document.getElementById('remote-video');
       if (video) {
         video.srcObject = e.streams[0];
-        video.muted = false; // desmutar tras asignar el stream
+        video.muted = true;
         video.play()
-          .then(() => { video.muted = false; })
+          .then(() => {
+            video.muted = false;
+            dbg('video.play() OK');
+          })
           .catch(err => {
-            console.warn('video.play() falló, reintentando sin muted:', err);
-            // En algunos móviles necesita interacción del usuario — mostrar el vídeo igualmente
+            dbg('video.play() error: ' + err.message);
             video.muted = false;
           });
       }
@@ -859,25 +879,32 @@ async function answerCall() {
     pc.onicecandidate = (e) => {
       if (e.candidate && ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: myRoom }));
+        dbg('ICE candidate enviado');
       }
     };
 
     // Avisar al visitante que estamos listos — él enviará el offer
     ws.send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
+    dbg('neighbor-ready enviado, pendingOffer=' + !!pendingOffer);
 
     // Si el offer ya llegó antes de contestar, procesarlo ahora
     if (pendingOffer) {
+      dbg('procesando pendingOffer...');
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
+      dbg('setRemoteDescription OK');
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: myRoom }));
+      dbg('answer enviado');
+    } else {
+      dbg('sin pendingOffer — esperando offer del visitante');
     }
-    // Si no hay offer aún, el case 'offer' lo procesará cuando llegue
 
     const topLabel = document.getElementById('call-top-label');
     if (topLabel) topLabel.textContent = myLabel || 'En llamada';
 
   } catch (e) {
+    dbg('ERROR: ' + e.message);
     console.error('answerCall error:', e);
     endCall();
   }
