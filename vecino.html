@@ -378,7 +378,12 @@ function initApp() {
       showAllScreens('screen-setup');
       loadPortalInfo();
     } else {
+      // App instalada sin config y sin URL params — mostrar aviso claro
       showAllScreens('screen-setup');
+      const nameEl = document.getElementById('pi-name');
+      const addrEl = document.getElementById('pi-addr');
+      if (nameEl) nameEl.textContent = 'Enlace no encontrado';
+      if (addrEl) addrEl.textContent = 'Abre la app usando el enlace del panel de administración';
     }
   } else {
     showAllScreens('screen-install');
@@ -504,7 +509,13 @@ function goToSetup() {
 // ─── PORTAL INFO ──────────────────────────────────────────────────────────────
 async function loadPortalInfo() {
   const pid = urlPortal || localStorage.getItem('portero-portal-url') || myPortalId;
-  if (!pid) return;
+  if (!pid) {
+    const nameEl = document.getElementById('pi-name');
+    const addrEl = document.getElementById('pi-addr');
+    if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+    if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
+    return;
+  }
 
   try {
     const res = await fetch(`${SERVER}/api/portal/${pid}/public`);
@@ -559,7 +570,21 @@ async function doActivate() {
     return;
   }
 
-  // Mostrar pantalla de espera mientras se configura
+  // ── PASO 1: Pedir permiso de notificaciones INMEDIATAMENTE ──────────────
+  // Debe ser lo primero antes de cualquier await — el navegador exige
+  // que la llamada ocurra durante el gesto del usuario (tap en botón)
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch(e) {}
+  }
+
+  // ── PASO 2: Pedir micrófono — también requiere gesto de usuario ──────────
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    console.warn('Micrófono no disponible:', e);
+  }
+
+  // ── PASO 3: Mostrar pantalla de espera ───────────────────────────────────
   showAllScreens('screen-success');
   const el = document.getElementById('success-label');
   if (el) el.textContent = 'Configurando tu portero…';
@@ -568,10 +593,8 @@ async function doActivate() {
   const successIcon = document.querySelector('#screen-success .success-icon');
   if (successIcon) successIcon.textContent = '⏳';
 
-  // Construir room usando floorId
+  // ── PASO 4: Guardar configuración ────────────────────────────────────────
   myRoom = `${myPortalId}-${myFloorId}`;
-
-  // Guardar todo en localStorage
   localStorage.setItem('portero-room',    myRoom);
   localStorage.setItem('portero-portal',  myPortalId);
   localStorage.setItem('portero-floorId', myFloorId);
@@ -579,15 +602,7 @@ async function doActivate() {
   localStorage.setItem('portero-letter',  myLetter);
   localStorage.setItem('portero-label',   myLabel);
 
-  // Pedir micrófono
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch (e) {
-    console.warn('Micrófono no disponible:', e);
-  }
-
-  // Pedir permiso de notificaciones Y registrar push en el mismo paso
-  // (debe hacerse con interacción del usuario activa — aquí es el momento correcto)
+  // ── PASO 5: Registrar suscripción push ───────────────────────────────────
   await setupPush();
 
   showActivationSuccess();
@@ -668,9 +683,10 @@ async function setupPush() {
     const reg = await navigator.serviceWorker.register('/portero-virtual/sw.js');
     await navigator.serviceWorker.ready;
 
-    const permission = await Notification.requestPermission();
+    // El permiso ya se pidió en doActivate() — aquí solo verificamos
+    const permission = Notification.permission;
     if (permission !== 'granted') {
-      console.warn('Notificaciones denegadas');
+      console.warn('Notificaciones no concedidas:', permission);
       return;
     }
 
@@ -760,12 +776,12 @@ async function handleWsMessage(data) {
     }
 
     case 'offer': {
-      pendingOffer = data.offer;
+      pendingOffer = data.sdp || data.offer;
       // Si ya contestamos pero el offer llegó tarde, procesarlo ahora
       if (pc && pc.signalingState === 'stable') {
-        pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+        pc.setRemoteDescription(new RTCSessionDescription(data.sdp || data.offer))
           .then(() => pc.createAnswer())
-          .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',answer,room:myRoom})); })
+          .then(answer => { pc.setLocalDescription(answer); if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'answer',sdp:answer,room:myRoom})); })
           .catch(e => console.warn('late offer:', e));
       }
     }
@@ -854,7 +870,7 @@ async function answerCall() {
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: 'answer', answer, room: myRoom }));
+      ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: myRoom }));
     }
     // Si no hay offer aún, el case 'offer' lo procesará cuando llegue
 
