@@ -126,7 +126,9 @@ async function initDB() {
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT`,
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
-    `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`
+    `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
+    // portals: user_id puede no existir si el schema original era diferente
+    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`
   ];
   for (const m of migrations) {
     await pool.query(m).catch(e => console.warn('[migration skip]', e.message));
@@ -673,11 +675,17 @@ console.log(`[BOOT] VAPID_PUBLIC_KEY configurada: ${process.env.VAPID_PUBLIC_KEY
 console.log(`[BOOT] JWT_SECRET configurada: ${process.env.JWT_SECRET ? 'SÍ' : 'NO'}`);
 console.log(`[BOOT] Iniciando en puerto ${PORT}...`);
 
-// Arrancar el servidor ANTES de initDB para que /health siempre responda
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Portero Virtual v2.2 — puerto ${PORT} activo`);
-  // Inicializar DB en background — si falla, loguea pero no mata el proceso
-  initDB()
-    .then(() => console.log('[BOOT] DB inicializada correctamente'))
-    .catch(e => console.error('[BOOT] ❌ DB init error:', e.message, e.stack));
-});
+// initDB primero, luego escuchar — evita race condition con migraciones
+initDB()
+  .then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Portero Virtual v2.3 — puerto ${PORT} activo`);
+    });
+  })
+  .catch(e => {
+    // Si falla initDB, arrancar de todas formas pero logueando el error
+    console.error('[BOOT] ❌ DB init error:', e.message);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`⚠️  Portero Virtual v2.3 — puerto ${PORT} (DB con errores)`);
+    });
+  });
