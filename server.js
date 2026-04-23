@@ -663,14 +663,25 @@ app.post('/reset-password', async (req, res) => {
     return res.status(400).json({ error: 'email y newPassword (min 6 chars) requeridos' });
   }
   try {
-    const hash = await bcrypt.hash(newPassword, 10);
-    const r = await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE email = $2 RETURNING id, email',
-      [hash, email.toLowerCase().trim()]
+    // Buscar el usuario primero para dar error claro
+    const userCheck = await pool.query(
+      'SELECT id, email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))',
+      [email]
     );
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Email no encontrado' });
-    console.log(`[RESET] Contraseña actualizada para ${email}`);
-    res.json({ ok: true, email: r.rows[0].email, message: 'Contraseña actualizada. Borra este endpoint.' });
+    console.log(`[RESET] Buscando email: "${email}" — encontrado: ${userCheck.rows.length > 0}`);
+    if (userCheck.rows.length === 0) {
+      // Listar emails existentes en log para diagnóstico
+      const allEmails = await pool.query('SELECT email FROM users');
+      console.log(`[RESET] Emails en BD: ${allEmails.rows.map(r=>r.email).join(', ')}`);
+      return res.status(404).json({ error: 'Email no encontrado', hint: 'Revisa que el email sea exactamente el que usaste al registrarte' });
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [hash, userCheck.rows[0].id]
+    );
+    console.log(`[RESET] ✅ Contraseña actualizada para ${userCheck.rows[0].email}`);
+    res.json({ ok: true, email: userCheck.rows[0].email, message: 'Contraseña actualizada.' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
