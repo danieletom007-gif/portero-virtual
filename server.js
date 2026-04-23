@@ -22,7 +22,8 @@ const pool  = new Pool({
     : { rejectUnauthorized: false }
 });
 
-app.use(cors());
+app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
+app.options("*", cors());
 app.use(express.json());
 
 // ─── VAPID ───────────────────────────────────────────────────────────────────
@@ -109,13 +110,34 @@ async function initDB() {
 
   // Migraciones seguras — ignorar errores si ya están aplicadas
   const migrations = [
+    // floors: columnas legacy opcionales
     `ALTER TABLE floors ALTER COLUMN number DROP NOT NULL`,
     `ALTER TABLE floors ALTER COLUMN letter DROP NOT NULL`,
-    `ALTER TABLE floors ALTER COLUMN unit_label DROP NOT NULL`
+    `ALTER TABLE floors ALTER COLUMN unit_label DROP NOT NULL`,
+    // portals: añadir created_at si no existe (tabla creada por versión anterior)
+    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`,
+    `ALTER TABLE portals ADD COLUMN IF NOT EXISTS city TEXT DEFAULT ''`,
+    // users: añadir created_at si no existe
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
+    // users: algunos servidores anteriores usaban "password" en vez de "password_hash"
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`,
+    // call_log y notices: añadir si faltan columnas
+    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT`,
+    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
+    `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`
   ];
   for (const m of migrations) {
-    await pool.query(m).catch(() => {});
+    await pool.query(m).catch(e => console.warn('[migration skip]', e.message));
   }
+
+  // Si la tabla users tiene columna "password" pero no "password_hash" rellena,
+  // copiar los hashes para no perder acceso
+  await pool.query(`
+    UPDATE users SET password_hash = password
+    WHERE password_hash IS NULL AND password IS NOT NULL
+  `).catch(() => {});
 
   console.log('✅ DB lista');
 }
@@ -151,6 +173,7 @@ app.post('/api/auth/login', async (req, res) => {
     const r = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     const user = r.rows[0];
     if (!user) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    if (!user.password_hash) { return res.status(500).json({ error: "password_hash column missing — contacta al admin" }); }
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
     res.json({
@@ -186,11 +209,11 @@ app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
 app.get('/api/portals', authMiddleware, async (req, res) => {
   try {
     const r = await pool.query(
-      'SELECT * FROM portals WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, name, user_id, COALESCE(address, \'\') AS address, COALESCE(city, \'\') AS city FROM portals WHERE user_id = $1 ORDER BY id',
       [req.user.id]
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { console.error('GET /api/portals:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/portals', authMiddleware, async (req, res) => {
@@ -238,7 +261,7 @@ app.get('/api/portal/:portalId/public', async (req, res) => {
     const fr = await pool.query(
       `SELECT id, unit_label, number, letter
        FROM floors WHERE portal_id = $1
-       ORDER BY unit_label ASC NULLS LAST`,
+       ORDER BY unit_label ASC`,
       [req.params.portalId]
     );
     portal.floors = fr.rows.map(f => ({
@@ -264,8 +287,9 @@ app.get('/api/portals/:id/floors', authMiddleware, async (req, res) => {
     const r = await pool.query(
       `SELECT id, unit_label, number, letter,
               push_subscription IS NOT NULL AS installed,
+              push_subscription,
               created_at
-       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC NULLS LAST`,
+       FROM floors WHERE portal_id = $1 ORDER BY unit_label ASC`,
       [req.params.id]
     );
     res.json(r.rows);
@@ -620,13 +644,16 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT) || 3000;
 
-initDB()
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Portero Virtual v2.2 — puerto ${PORT}`);
-    });
-  })
-  .catch(e => {
-    console.error('❌ DB init error:', e.message);
-    process.exit(1);
-  });
+console.log(`[BOOT] DATABASE_URL configurada: ${process.env.DATABASE_URL ? 'SÍ' : 'NO'}`);
+console.log(`[BOOT] VAPID_PUBLIC_KEY configurada: ${process.env.VAPID_PUBLIC_KEY ? 'SÍ' : 'NO'}`);
+console.log(`[BOOT] JWT_SECRET configurada: ${process.env.JWT_SECRET ? 'SÍ' : 'NO'}`);
+console.log(`[BOOT] Iniciando en puerto ${PORT}...`);
+
+// Arrancar el servidor ANTES de initDB para que /health siempre responda
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Portero Virtual v2.2 — puerto ${PORT} activo`);
+  // Inicializar DB en background — si falla, loguea pero no mata el proceso
+  initDB()
+    .then(() => console.log('[BOOT] DB inicializada correctamente'))
+    .catch(e => console.error('[BOOT] ❌ DB init error:', e.message, e.stack));
+});
