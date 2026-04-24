@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portero-v3';
+const CACHE_NAME = 'portero-v4';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -20,13 +20,13 @@ self.addEventListener('push', e => {
 
   e.waitUntil(
     self.registration.showNotification(data.title || '🔔 Alguien llama al portal', {
-      body:    data.body  || 'Hay una visita esperando.',
-      icon:    '/portero-virtual/icon-192.png',
-      badge:   '/portero-virtual/icon-192.png',
-      tag:     'portero-llamada',
+      body:     data.body || 'Hay una visita esperando.',
+      icon:     '/portero-virtual/icon-192.png',
+      badge:    '/portero-virtual/icon-192.png',
+      tag:      'portero-llamada',
       renotify: true,
       requireInteraction: true,
-      data:    { url: data.url || '/portero-virtual/vecino.html' }
+      data:     { url: data.url || '/portero-virtual/vecino.html' }
     })
   );
 });
@@ -38,13 +38,23 @@ self.addEventListener('notificationclick', e => {
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // Si ya hay una ventana de vecino abierta, navegar a la URL con contestar=true
-      for (const c of list) {
-        if (c.url.includes('vecino')) {
-          return c.navigate(url).then(client => client ? client.focus() : clients.openWindow(url));
-        }
+      // Buscar ventana de vecino ya abierta
+      const vecino = list.find(c => c.url.includes('vecino'));
+
+      if (vecino) {
+        // Hay ventana abierta — traerla al frente y navegar a la URL
+        return vecino.focus().then(c => {
+          // Navegar a la URL con contestar=true
+          if (c && 'navigate' in c) {
+            return c.navigate(url);
+          }
+        }).catch(() => {
+          // Si navigate falla, abrir nueva ventana
+          return clients.openWindow(url);
+        });
       }
-      // Si no hay ventana abierta, abrir una nueva
+
+      // No hay ventana abierta — abrir la URL directamente
       return clients.openWindow(url);
     })
   );
