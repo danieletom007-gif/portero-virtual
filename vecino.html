@@ -367,7 +367,7 @@ if (urlParams.get('floor'))   localStorage.setItem('portero-floor-url',  urlPara
 function initApp() {
   loadStoredConfig();
 
-  // PRIORIDAD 1: llegamos desde una notificación push — manejado al final del script
+  // urlContest manejado al final del script
 
   // PRIORIDAD 2: app ya configurada (instalada con config guardada)
   if (isInstalledApp() || (myRoom && myPortalId)) {
@@ -579,30 +579,15 @@ async function doActivate() {
     return;
   }
 
-  // ── PASO 1: Pedir permiso de notificaciones INMEDIATAMENTE ──────────────
-  // Debe ser lo primero antes de cualquier await — el navegador exige
-  // que la llamada ocurra durante el gesto del usuario (tap en botón)
-  if ('Notification' in window && Notification.permission === 'default') {
-    try { await Notification.requestPermission(); } catch(e) {}
-  }
-
-  // ── PASO 2: Pedir micrófono — también requiere gesto de usuario ──────────
+  // Pedir micrófono primero (requiere gesto del usuario)
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch (e) {
-    console.warn('Micrófono no disponible:', e);
+    alert('Necesitamos acceso al micrófono: ' + e.message);
+    return;
   }
 
-  // ── PASO 3: Mostrar pantalla de espera ───────────────────────────────────
-  showAllScreens('screen-success');
-  const el = document.getElementById('success-label');
-  if (el) el.textContent = 'Configurando tu portero…';
-  const cd = document.getElementById('success-countdown');
-  if (cd) cd.textContent = 'Por favor espera…';
-  const successIcon = document.querySelector('#screen-success .success-icon');
-  if (successIcon) successIcon.textContent = '⏳';
-
-  // ── PASO 4: Guardar configuración ────────────────────────────────────────
+  // Guardar configuración
   myRoom = `${myPortalId}-${myFloorId}`;
   localStorage.setItem('portero-room',    myRoom);
   localStorage.setItem('portero-portal',  myPortalId);
@@ -610,8 +595,9 @@ async function doActivate() {
   localStorage.setItem('portero-floor',   myFloor);
   localStorage.setItem('portero-letter',  myLetter);
   localStorage.setItem('portero-label',   myLabel);
+  localStorage.setItem('portero-installed', '1');
 
-  // ── PASO 5: Registrar suscripción push ───────────────────────────────────
+  // Registrar push (pide permiso de notificaciones — popup nativo del sistema)
   await setupPush();
 
   showActivationSuccess();
@@ -1030,22 +1016,14 @@ function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg); }
 // ─── ARRANCAR ─────────────────────────────────────────────────────────────────
 initApp();
 
-// Si el vecino llega desde una notificación push
+// Si el vecino llega desde una notificación push (?contestar=true)
 if (urlContest) {
-  const savedRoom   = localStorage.getItem('portero-room');
-  const savedPortal = localStorage.getItem('portero-portal') || urlPortal;
+  const savedRoom    = localStorage.getItem('portero-room');
+  const savedPortal  = localStorage.getItem('portero-portal') || urlPortal;
   const savedFloorId = localStorage.getItem('portero-floorId') || urlFloorId;
-  const savedLabel  = localStorage.getItem('portero-label') || '';
   const room = savedRoom || (savedPortal && savedFloorId ? `${savedPortal}-${savedFloorId}` : '');
   if (room && savedPortal) {
     myRoom = room; myPortalId = savedPortal; myFloorId = savedFloorId;
-    // Actualizar labels de pantalla
-    const incBuild = document.getElementById('inc-building');
-    const incAddr  = document.getElementById('inc-address');
-    if (incBuild) incBuild.textContent = '';
-    if (incAddr)  incAddr.textContent  = '';
-    loadPortalInfo && loadPortalInfo(savedPortal);
-    // Pedir micrófono, luego mostrar incoming y conectar WS
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
         localStream = stream;
