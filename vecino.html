@@ -321,7 +321,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 const SERVER = 'https://merry-joy-production-4504.up.railway.app';
 
 const TURN_CONFIG = {
-  iceTransportPolicy: 'relay',
+  iceTransportPolicy: 'all',
   iceServers: [
     {
       urls: [
@@ -673,13 +673,13 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function setupPush() {
-  if (!myPortalId || !('serviceWorker' in navigator)) return;
+  if (!myPortalId || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
     const reg = await navigator.serviceWorker.register('/portero-virtual/sw.js');
     await navigator.serviceWorker.ready;
 
-    // El permiso ya se pidió en doActivate() — aquí solo verificamos
-    const permission = Notification.permission;
+    // Pedir permiso de notificaciones — muestra popup nativo del sistema
+    const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notificaciones no concedidas:', permission);
       return;
