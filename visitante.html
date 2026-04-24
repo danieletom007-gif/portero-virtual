@@ -808,8 +808,22 @@ async function startCall() {
   show('screen-calling');
   setStep(1);
 
-  // Sin timeout automático — el visitante espera hasta que cancele manualmente
-  // Esto permite que el vecino reciba la notificación push aunque tarde en responder
+  // Timeout sin respuesta + contador visual
+  let countdownSecs = RING_TIMEOUT_MS / 1000;
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = countdownSecs;
+  const countdownInterval = setInterval(() => {
+    countdownSecs--;
+    if (countdownEl) countdownEl.textContent = countdownSecs;
+    if (countdownSecs <= 0) clearInterval(countdownInterval);
+  }, 1000);
+
+  ringTimeout = setTimeout(() => {
+    clearInterval(countdownInterval);
+    if (ws) ws.close();
+    stopLocalStream();
+    show('screen-noanswer');
+  }, RING_TIMEOUT_MS);
 
   connectWS();
 }
@@ -866,7 +880,7 @@ function connectWS() {
 
 // ── WebRTC ────────────────────────────────────────────────
 async function createPeer() {
-  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'relay' });
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'all' });
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   pc.ontrack = ({ track, streams }) => {
