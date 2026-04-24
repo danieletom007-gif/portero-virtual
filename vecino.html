@@ -1024,13 +1024,10 @@ if (urlContest) {
   const room = savedRoom || (savedPortal && savedFloorId ? `${savedPortal}-${savedFloorId}` : '');
   if (room && savedPortal) {
     myRoom = room; myPortalId = savedPortal; myFloorId = savedFloorId;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        localStream = stream;
-        showAllScreens('screen-incoming');
-        connectWS();
-      })
-      .catch(() => showAllScreens('screen-setup'));
+    // Mostrar pantalla de llamada entrante inmediatamente
+    // sin pedir micrófono — se pedirá cuando el vecino pulse "Contestar"
+    showAllScreens('screen-incoming');
+    connectWS();
   }
 }
 </script>
