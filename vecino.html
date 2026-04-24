@@ -1019,15 +1019,20 @@ initApp();
 // Si el vecino llega desde una notificación push (?contestar=true)
 if (urlContest) {
   const savedRoom    = localStorage.getItem('portero-room');
-  const savedPortal  = localStorage.getItem('portero-portal') || urlPortal;
-  const savedFloorId = localStorage.getItem('portero-floorId') || urlFloorId;
-  const room = savedRoom || (savedPortal && savedFloorId ? `${savedPortal}-${savedFloorId}` : '');
-  if (room && savedPortal) {
-    myRoom = room; myPortalId = savedPortal; myFloorId = savedFloorId;
-    // Mostrar pantalla de llamada entrante inmediatamente
-    // sin pedir micrófono — se pedirá cuando el vecino pulse "Contestar"
-    showAllScreens('screen-incoming');
-    connectWS();
+  const savedPortal  = localStorage.getItem('portero-portal');
+  const savedFloorId = localStorage.getItem('portero-floorId');
+  const savedLabel   = localStorage.getItem('portero-label') || '';
+  if (savedRoom && savedPortal) {
+    myRoom = savedRoom; myPortalId = savedPortal; myFloorId = savedFloorId;
+    // Actualizar texto de la pantalla de llamada entrante
+    const sub = document.getElementById('incoming-sub');
+    if (sub && savedLabel) sub.textContent = savedLabel;
+    // Pedir micrófono, mostrar pantalla y conectar WS
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+      localStream = stream;
+      showAllScreens('screen-incoming');
+      connectWS();
+    }).catch(() => showAllScreens('screen-setup'));
   }
 }
 </script>
