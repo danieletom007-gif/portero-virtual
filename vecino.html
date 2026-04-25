@@ -1024,15 +1024,10 @@ if (urlContest) {
   const savedLabel   = localStorage.getItem('portero-label') || '';
   if (savedRoom && savedPortal) {
     myRoom = savedRoom; myPortalId = savedPortal; myFloorId = savedFloorId;
-    // Actualizar texto de la pantalla de llamada entrante
     const sub = document.getElementById('incoming-sub');
     if (sub && savedLabel) sub.textContent = savedLabel;
-    // Pedir micrófono, mostrar pantalla y conectar WS
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
-      localStream = stream;
-      showAllScreens('screen-incoming');
-      connectWS();
-    }).catch(() => showAllScreens('screen-setup'));
+    showAllScreens('screen-incoming');
+    connectWS();
   }
 }
 </script>
