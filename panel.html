@@ -429,9 +429,6 @@ tr:hover td { background: var(--bg); }
       </div>
       <div class="login-error" id="login-error"></div>
       <button class="btn-primary" onclick="doLogin()" id="login-btn">Entrar</button>
-      <div class="login-register" style="margin-top:8px">
-        <a href="#" onclick="openForgot();return false;" style="color:var(--accent);font-size:13px;text-decoration:none">¿Olvidaste tu contraseña?</a>
-      </div>
       <div class="login-register">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
     </div>
 
@@ -1036,7 +1033,7 @@ async function doLogin() {
   try {
     const res  = await apiFetch('/auth/login', 'POST', { email, password }, false);
     token = res.token;
-    currentClient = res.user;
+    currentClient = res.client;
     localStorage.setItem('admin-token', token);
     localStorage.setItem('admin-client', JSON.stringify(currentClient));
     initApp();
@@ -1060,7 +1057,7 @@ async function doRegister() {
   try {
     const res = await apiFetch('/auth/register', 'POST', { name, email, password }, false);
     token = res.token;
-    currentClient = res.user;
+    currentClient = res.client;
     localStorage.setItem('admin-token', token);
     localStorage.setItem('admin-client', JSON.stringify(currentClient));
     initApp();
@@ -1278,7 +1275,7 @@ async function loadFloors() {
 
   try {
     const floors = await apiFetch(`/portals/${currentPortalId}/floors`);
-    const active  = floors.filter(f => f.installed || f.has_push || f.push_subscription).length;
+    const active  = floors.filter(f => f.has_push).length;
     const pending = floors.length - active;
 
     document.getElementById('detail-floor-count').textContent   = floors.length;
@@ -1292,7 +1289,7 @@ async function loadFloors() {
 
     tbody.innerHTML = floors.map(f => {
       const label = f.unit_label || (f.number + (f.letter ? 'º ' + f.letter : ''));
-      const active = f.installed || f.has_push || !!f.push_subscription;
+      const active = f.has_push;
       return `<tr>
         <td><span style="font-weight:600">${label}</span></td>
         <td style="color:var(--muted)">${f.resident_name || '—'}</td>
@@ -1671,7 +1668,7 @@ async function loadNoticesHistory() {
         <td style="color:var(--muted);font-size:12px">${new Date(n.sent_at).toLocaleString('es')}</td>
         <td><span class="badge badge-accent">${style.label}</span></td>
         <td style="font-weight:500">${n.title}</td>
-        <td style="color:var(--muted)">${n.recipients || 0} vecinos</td>
+        <td style="color:var(--muted)">${n.recipients_count} vecinos</td>
       </tr>`;
     }).join('');
   } catch { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin historial</td></tr>'; }
@@ -1724,7 +1721,7 @@ async function loadAllCalls() {
     for (const p of portals) {
       try {
         const stats = await apiFetch(`/portals/${p.id}/stats`);
-        (stats.recentCalls || stats.recent || []).forEach(c => { c._portalName = p.name; allCalls.push(c); });
+        (stats.recent || []).forEach(c => { c._portalName = p.name; allCalls.push(c); });
         totalAnswered += parseInt(stats.answered_calls || 0);
       } catch {}
     }
@@ -1745,7 +1742,7 @@ async function loadAllCalls() {
     tbody.innerHTML = allCalls.map(c => `<tr>
       <td style="font-size:12px;color:var(--muted)">${new Date(c.started_at).toLocaleString('es')}</td>
       <td style="font-weight:500">${c._portalName}</td>
-      <td>${c.floor_label || (c.floor_number ? c.floor_number+(c.floor_letter?'º '+c.floor_letter:'') : '—')}</td>
+      <td>${c.floor_label || (c.floor_number ? c.floor_number + 'º ' + (c.floor_letter||'') : '—')}</td>
       <td><span class="badge ${c.answered ? 'badge-green' : 'badge-amber'}"><span class="dot"></span>${c.answered ? 'Contestada' : 'Sin respuesta'}</span></td>
       <td style="color:var(--muted)">${c.duration_sec > 0 ? Math.floor(c.duration_sec/60)+'m '+c.duration_sec%60+'s' : '—'}</td>
     </tr>`).join('');
@@ -1756,14 +1753,14 @@ async function loadPortalCalls() {
   const tbody = document.getElementById('calls-detail-table');
   try {
     const stats = await apiFetch(`/portals/${currentPortalId}/stats`);
-    const calls = stats.recentCalls || stats.recent || [];
+    const calls = stats.recent || [];
     if (!calls.length) {
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">Sin llamadas registradas</td></tr>';
       return;
     }
     tbody.innerHTML = calls.map(c => `<tr>
       <td style="font-size:12px;color:var(--muted)">${new Date(c.started_at).toLocaleString('es')}</td>
-      <td style="font-weight:500">${c.floor_label || (c.floor_number ? c.floor_number+(c.floor_letter?'º '+c.floor_letter:'') : '—')}</td>
+      <td style="font-weight:500">${c.floor_label || (c.floor_number ? c.floor_number + 'º ' + (c.floor_letter||'') : '—')}</td>
       <td><span class="badge ${c.answered ? 'badge-green' : 'badge-amber'}"><span class="dot"></span>${c.answered ? 'Contestada' : 'Sin respuesta'}</span></td>
       <td style="color:var(--muted)">${c.duration_sec > 0 ? Math.floor(c.duration_sec/60)+'m '+c.duration_sec%60+'s' : '—'}</td>
     </tr>`).join('');
@@ -1823,142 +1820,5 @@ if (token && currentClient) {
   document.getElementById('screen-login').style.display = 'flex';
 }
 </script>
-<!-- ── Modal: Olvidé mi contraseña ── -->
-<div class="modal-overlay" id="modal-forgot" style="z-index:2000">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-header">
-      <div class="modal-title">Recuperar contraseña</div>
-      <button class="modal-close" onclick="closeModal('modal-forgot')">×</button>
-    </div>
-    <div id="forgot-step1-inner">
-      <div class="modal-body">
-        <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
-          Introduce tu email y la nueva contraseña que quieres usar.
-        </p>
-        <div class="form-group">
-          <label>Email de tu cuenta</label>
-          <input type="email" id="forgot-email" placeholder="tu@email.com">
-        </div>
-        <div class="form-group">
-          <label>Nueva contraseña (mín. 6 caracteres)</label>
-          <div style="position:relative">
-            <input type="password" id="forgot-pass1" placeholder="••••••••" style="padding-right:40px">
-            <button type="button" onclick="togglePwd('forgot-pass1',this)" tabindex="-1"
-              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                     background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex">
-              <svg id="eye-pass1" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Repite la nueva contraseña</label>
-          <div style="position:relative">
-            <input type="password" id="forgot-pass2" placeholder="••••••••" style="padding-right:40px">
-            <button type="button" onclick="togglePwd('forgot-pass2',this)" tabindex="-1"
-              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                     background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div id="forgot-error-inner" class="login-error"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal('modal-forgot')">Cancelar</button>
-        <button class="btn btn-accent" onclick="doForgotReset()" id="forgot-btn-inner">Cambiar contraseña</button>
-      </div>
-    </div>
-    <div id="forgot-step2-inner" style="display:none">
-      <div class="modal-body" style="text-align:center;padding:40px 24px">
-        <div style="font-size:48px;margin-bottom:16px">✅</div>
-        <div style="font-size:18px;font-weight:600;margin-bottom:8px">¡Contraseña cambiada!</div>
-        <p style="color:var(--muted);font-size:14px;margin-bottom:24px">Ya puedes iniciar sesión con tu nueva contraseña.</p>
-        <button class="btn btn-accent" style="width:100%" onclick="closeModal('modal-forgot')">Ir al login</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── Forgot password ───────────────────────────────────────
-window.openForgot = function() {
-  document.getElementById('forgot-step1-inner').style.display = '';
-  document.getElementById('forgot-step2-inner').style.display = 'none';
-  document.getElementById('forgot-error-inner').style.display = 'none';
-  document.getElementById('forgot-email').value  = document.getElementById('login-email')?.value || '';
-  document.getElementById('forgot-pass1').value  = '';
-  document.getElementById('forgot-pass2').value  = '';
-  openModal('modal-forgot');
-  setTimeout(() => document.getElementById('forgot-email').focus(), 100);
-};
-
-window.doForgotReset = async function() {
-  const email = document.getElementById('forgot-email').value.trim();
-  const pass1 = document.getElementById('forgot-pass1').value;
-  const pass2 = document.getElementById('forgot-pass2').value;
-  const errEl = document.getElementById('forgot-error-inner');
-  const btn   = document.getElementById('forgot-btn-inner');
-
-  errEl.style.display = 'none';
-  if (!email)              return showFErr('Introduce tu email');
-  if (pass1.length < 6)   return showFErr('Mínimo 6 caracteres');
-  if (pass1 !== pass2)     return showFErr('Las contraseñas no coinciden');
-
-  btn.disabled = true; btn.textContent = 'Cambiando...';
-  try {
-    const res  = await fetch('https://merry-joy-production-4504.up.railway.app/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, newPassword: pass1, resetKey: 'portero-reset-2026' })
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      document.getElementById('forgot-step1-inner').style.display = 'none';
-      document.getElementById('forgot-step2-inner').style.display = '';
-      const loginEl = document.getElementById('login-email');
-      if (loginEl) loginEl.value = email;
-    } else {
-      showFErr(data.error || 'Error al cambiar la contraseña');
-    }
-  } catch { showFErr('No se pudo conectar con el servidor'); }
-  finally  { btn.disabled = false; btn.textContent = 'Cambiar contraseña'; }
-};
-
-function showFErr(msg) {
-  const el = document.getElementById('forgot-error-inner');
-  el.textContent = msg; el.style.display = 'block';
-}
-
-window.togglePwd = function(inputId, btn) {
-  const input = document.getElementById(inputId);
-  const show  = input.type === 'password';
-  input.type  = show ? 'text' : 'password';
-  // Cambiar icono ojo → ojo tachado
-  btn.innerHTML = show
-    ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-         <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-         <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-         <line x1="1" y1="1" x2="23" y2="23"/>
-       </svg>`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-       </svg>`;
-};
-
-['forgot-pass1','forgot-pass2'].forEach(id => {
-  document.getElementById(id)?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doForgotReset();
-  });
-});
-</script>
-
 </body>
 </html>
