@@ -372,10 +372,11 @@ function initApp() {
   // PRIORIDAD 2: app ya configurada (instalada con config guardada)
   if (isInstalledApp() || (myRoom && myPortalId)) {
     if (myRoom && myPortalId) {
-      showAllScreens('screen-standby');
-      updateStandbyUI();
-      loadPortalInfo();
-      connectWS();
+  showAllScreens('screen-standby');
+  updateStandbyUI();
+  loadPortalInfo();
+  connectWS();
+
     } else if (urlPortal || urlFloorId) {
       showAllScreens('screen-setup');
       loadPortalInfo();
