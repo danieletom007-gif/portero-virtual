@@ -16,7 +16,11 @@ self.addEventListener('activate', e => {
 self.addEventListener('push', e => {
   if (!e.data) return;
   let data;
-  try { data = e.data.json(); } catch { data = { title: '🔔 Llamada', body: e.data.text() }; }
+  try { 
+    data = e.data.json(); 
+  } catch { 
+    data = { title: '🔔 Llamada', body: e.data.text() }; 
+  }
 
   e.waitUntil(
     self.registration.showNotification(data.title || '🔔 Alguien llama al portal', {
@@ -26,7 +30,9 @@ self.addEventListener('push', e => {
       tag:      'portero-llamada',
       renotify: true,
       requireInteraction: true,
-      data:     { url: data.url || '/portero-virtual/vecino.html' }
+
+      // 🔥 CAMBIO IMPORTANTE: añadir ?contestar=true
+      data:     { url: data.url || '/portero-virtual/vecino.html?contestar=true' }
     })
   );
 });
@@ -34,7 +40,9 @@ self.addEventListener('push', e => {
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const data = e.notification.data || {};
-  const url  = data.url || '/portero-virtual/vecino.html';
+
+  // 🔥 CAMBIO IMPORTANTE: añadir ?contestar=true
+  const url  = data.url || '/portero-virtual/vecino.html?contestar=true';
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
@@ -44,7 +52,6 @@ self.addEventListener('notificationclick', e => {
       if (vecino) {
         // Hay ventana abierta — traerla al frente y navegar a la URL
         return vecino.focus().then(c => {
-          // Navegar a la URL con contestar=true
           if (c && 'navigate' in c) {
             return c.navigate(url);
           }
