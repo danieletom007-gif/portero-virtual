@@ -30,11 +30,8 @@ self.addEventListener('push', e => {
       tag:      'portero-llamada',
       renotify: true,
       requireInteraction: true,
-      vibrate:  [300, 100, 300, 100, 300],
-      actions: [
-        { action: 'contestar', title: '📞 Contestar' },
-        { action: 'rechazar',  title: '❌ Rechazar'  }
-      ],
+      // Vibración larga tipo llamada entrante
+      vibrate:  [500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500],
       data: { url: data.url || '/portero-virtual/vecino.html' }
     })
   );
@@ -42,14 +39,9 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const data   = e.notification.data || {};
-  const url    = data.url || '/portero-virtual/vecino.html';
-  const action = e.action;
+  const data = e.notification.data || {};
+  const url  = data.url || '/portero-virtual/vecino.html';
 
-  // Si rechaza — cerrar la notificación sin abrir la app
-  if (action === 'rechazar') return;
-
-  // Si contesta o pulsa la notificación — abrir la app con la URL completa
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       const vecino = list.find(c => c.url.includes('vecino'));
