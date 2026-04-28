@@ -110,8 +110,13 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .call-btn.mute.active{background:var(--orange)}
 .call-btn.chat-toggle{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
 /* Chat panel */
-.chat-panel{position:absolute;bottom:100px;left:12px;right:12px;background:rgba(20,20,22,.9);border-radius:var(--radius);padding:12px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;max-height:240px}
+.chat-panel{position:absolute;bottom:0;left:0;right:0;background:rgba(14,14,16,.95);border-radius:var(--radius) var(--radius) 0 0;padding:14px 12px 24px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;height:52vh;transition:all .3s}
 .chat-panel.open{display:flex}
+/* Vídeo reducido cuando chat abierto */
+#screen-call.chat-open #remote-video{height:48vh;width:100%;position:absolute;top:0;left:0;object-fit:cover}
+#screen-call.chat-open #video-placeholder{height:48vh}
+#screen-call.chat-open .call-overlay{height:48vh}
+#screen-call.chat-open .call-bottom{display:none}
 .chat-messages{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
 .chat-msg{font-size:13px;padding:6px 10px;border-radius:8px;max-width:85%;line-height:1.4}
 .chat-msg.sent{align-self:flex-end;background:var(--accent);color:#fff}
@@ -313,6 +318,17 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
       <button class="quick-btn" onclick="sendChat('Vuelve en 10 minutos')">10 minutos</button>
       <button class="quick-btn" onclick="sendChat('No esperaba visita')">No esperaba visita</button>
     </div>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+      <button onclick="endCall()" style="width:40px;height:40px;border-radius:50%;background:var(--red);border:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" style="transform:rotate(135deg)"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+      </button>
+      <input id="chat-input-vecino" type="text" placeholder="Escribe un mensaje..." maxlength="200"
+        style="flex:1;padding:8px 12px;border-radius:20px;background:rgba(255,255,255,0.12);color:#fff;border:none;font-size:14px;outline:none"
+        onkeydown="if(event.key==='Enter')sendChatInput()">
+      <button onclick="sendChatInput()" style="width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -323,6 +339,8 @@ const SERVER = 'https://merry-joy-production-4504.up.railway.app';
 const TURN_CONFIG = {
   iceTransportPolicy: 'all',
   iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
     {
       urls: [
         'turn:global.relay.metered.ca:443?transport=tcp',
@@ -881,6 +899,12 @@ function endCall() {
   if (badge) { badge.classList.remove('show'); badge.textContent = '!'; }
   const chatPanel = document.getElementById('chat-panel');
   if (chatPanel) chatPanel.classList.remove('open');
+  const screenCall = document.getElementById('screen-call');
+  if (screenCall) screenCall.classList.remove('chat-open');
+  const chatMessages = document.getElementById('chat-messages');
+  if (chatMessages) chatMessages.innerHTML = '';
+  const chatInput = document.getElementById('chat-input-vecino');
+  if (chatInput) chatInput.value = '';
   showAllScreens('screen-standby');
 }
 
@@ -909,6 +933,8 @@ function toggleChat() {
   chatOpen = !chatOpen;
   const panel = document.getElementById('chat-panel');
   if (panel) panel.classList.toggle('open', chatOpen);
+  const screen = document.getElementById('screen-call');
+  if (screen) screen.classList.toggle('chat-open', chatOpen);
   if (chatOpen) {
     unreadChat = 0;
     const badge = document.getElementById('chat-badge');
@@ -920,6 +946,15 @@ function sendChat(message) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ type: 'chat', message, room: myRoom }));
   appendChatMsg(message, 'sent');
+}
+
+function sendChatInput() {
+  const input = document.getElementById('chat-input-vecino');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  sendChat(text);
+  input.value = '';
 }
 
 function receiveChatMessage(message) {
