@@ -388,16 +388,9 @@ function initApp() {
       if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
     }
   } else {
-    // No instalada — mostrar pantalla de instalación
-    if (urlPortal || urlFloorId) {
-      // Tiene params de URL: ir directo a setup tras marcar como instalada
-      localStorage.setItem('portero-installed', '1');
-      showAllScreens('screen-setup');
-      loadPortalInfo();
-    } else {
-      showAllScreens('screen-install');
-      showInstallSection();
-    }
+    // No instalada — mostrar siempre pantalla de instalación primero
+    showAllScreens('screen-install');
+    showInstallSection();
   }
   checkQuietMode();
 }
@@ -1025,15 +1018,10 @@ if (urlContest) {
   const savedLabel   = localStorage.getItem('portero-label') || '';
   if (savedRoom && savedPortal) {
     myRoom = savedRoom; myPortalId = savedPortal; myFloorId = savedFloorId;
-    // Actualizar texto de la pantalla de llamada entrante
     const sub = document.getElementById('incoming-sub');
     if (sub && savedLabel) sub.textContent = savedLabel;
-    // Pedir micrófono, mostrar pantalla y conectar WS
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
-      localStream = stream;
-      showAllScreens('screen-incoming');
-      connectWS();
-    }).catch(() => showAllScreens('screen-setup'));
+    showAllScreens('screen-incoming');
+    connectWS();
   }
 }
 </script>
