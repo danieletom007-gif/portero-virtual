@@ -598,12 +598,6 @@
   <div class="timer" id="timer">00:00</div>
 
   <div class="controls-row">
-    <button class="btn-mute" id="btn-mute" onclick="toggleMute()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/>
-        <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
-      </svg>
-    </button>
     <button class="btn-hangup" onclick="hangup()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
         <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
@@ -867,7 +861,7 @@ function connectWS() {
     }
 
     if (msg.type === 'hangup') hangup(false);
-    if (msg.type === 'chat') appendChatMsg(msg.text, 'received', 'Vecino');
+    if (msg.type === 'chat') appendChatMsg(msg.message || msg.text, 'received', 'Vecino');
   };
 
   ws.onerror = () => {
@@ -916,12 +910,503 @@ function sendChatMsg() {
   const text  = input.value.trim();
   if (!text) return;
   input.value = '';
-  send({ type: 'chat', room: callRoom, text, from: 'visitor' });
+  send({ type: 'chat', room: callRoom, message: text, from: 'visitor' });
   appendChatMsg(text, 'sent', 'Tú');
 }
 
 function sendQuick(text) {
-  send({ type: 'chat', room: callRoom, text, from: 'visitor' });
+  send({ type: 'chat', room: callRoom, message: text, from: 'visitor' });
+  appendChatMsg(text, 'sent', 'Tú');
+}
+
+function appendChatMsg(text, cls, label) {
+  const container = document.getElementById('chat-messages');
+  const empty     = document.getElementById('chat-empty');
+  if (empty) empty.remove();
+
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + cls;
+  msg.innerHTML = `<div class="chat-msg-label">${label}</div>${escapeHtml(text)}`;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+
+  if (cls === 'received') {
+    const badge = document.getElementById('chat-new-badge');
+    badge.style.display = 'inline';
+    setTimeout(() => badge.style.display = 'none', 3000);
+  }
+}
+
+function clearChat() {
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '<div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>';
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Colgar ────────────────────────────────────────────────
+function hangup(notify = true) {
+  clearChat();
+  clearTimeout(ringTimeout);
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = '';
+  stopTimer();
+  if (notify && ws && ws.readyState === WebSocket.OPEN) send({ type: 'hangup', room: callRoom });
+  if (pc) { pc.close(); pc = null; }
+  stopLocalStream();
+  if (ws) { ws.close(); ws = null; }
+  show('screen-form');
+}
+
+function goHome() { show('screen-form'); }
+
+// ── Mute ──────────────────────────────────────────────────
+function toggleMute() {
+  muted = !muted;
+  if (localStream) localStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  document.getElementById('btn-mute').classList.toggle('muted', muted);
+}
+
+// ── Timer ─────────────────────────────────────────────────
+function startTimer() {
+  timerSeconds = 0;
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2,'0');
+    const s = String(timerSeconds % 60).padStart(2,'0');
+    document.getElementById('timer').textContent = m + ':' + s;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+// ── Pasos de progreso ─────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('step' + i);
+    if (i < n)  { dot.classList.add('done');   dot.classList.remove('active'); }
+    if (i === n){ dot.classList.add('active'); dot.classList.remove('done');  }
+    if (i > n)  { dot.classList.remove('done','active'); }
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function stopLocalStream() {
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+}
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function clearError() {
+  document.getElementById('form-error').style.display = 'none';
+}
+
+// ── Arrancar ──────────────────────────────────────────────
+loadPortal();
+</script>
+</body>
+</html>
+
+    <div id="form-error" class="error-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 2: LLAMANDO
+════════════════════════════════════════════ -->
+<div id="screen-calling">
+  <p class="calling-building" id="calling-building-label">—</p>
+  <div class="calling-dest" id="calling-dest-label">—</div>
+  <p class="calling-address-small" id="calling-address-label">—</p>
+
+  <div class="steps-panel">
+    <div class="status-step">
+      <div class="step-dot" id="step1"></div>
+      <span id="step1-text">Avisando al vecino...</span>
+    </div>
+    <div class="status-step">
+      <div class="step-dot" id="step2"></div>
+      <span>Esperando que conteste...</span>
+    </div>
+    <div class="status-step">
+      <div class="step-dot" id="step3"></div>
+      <span>Conectando videollamada...</span>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:16px">
+    Cancelando en <span id="ring-countdown">60</span>s
+  </div>
+
+  <div class="ring-wrap">
+    <div class="ring">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="#22c55e">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+    </div>
+  </div>
+
+  <button class="btn-hangup" onclick="hangup()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
+      <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+    </svg>
+    Cancelar llamada
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 3: CONECTADO
+════════════════════════════════════════════ -->
+<div id="screen-connected">
+  <div class="connected-pill">
+    <div class="dot-live"></div>
+    Comunicación activa
+  </div>
+
+  <div class="info-panel">
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+      </div>
+      Tu cámara → <span>visible para el vecino</span>
+    </div>
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+          <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+        </svg>
+      </div>
+      Audio → <span>bidireccional</span>
+    </div>
+  </div>
+
+  <div class="timer" id="timer">00:00</div>
+
+  <div class="controls-row">
+    <button class="btn-hangup" onclick="hangup()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+      Colgar
+    </button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <span>💬 Chat <span class="chat-new-badge" id="chat-new-badge">nuevo</span></span>
+      <span style="font-weight:400;font-size:11px">Solo visible durante la llamada</span>
+    </div>
+    <div class="chat-quickreplies" id="visitor-quickreplies">
+      <span class="chat-quick" onclick="sendQuick('¿Puedes bajar a abrir?')">¿Puedes bajar?</span>
+      <span class="chat-quick" onclick="sendQuick('Soy del reparto, tengo un paquete')">Tengo un paquete</span>
+      <span class="chat-quick" onclick="sendQuick('Vale, espero aquí')">Espero aquí</span>
+      <span class="chat-quick" onclick="sendQuick('De acuerdo, gracias')">De acuerdo</span>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" id="chat-input" placeholder="Escribe un mensaje..." maxlength="200" onkeydown="if(event.key==='Enter')sendChatMsg()">
+      <button class="chat-send" onclick="sendChatMsg()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 4: SIN RESPUESTA
+════════════════════════════════════════════ -->
+<div id="screen-noanswer">
+  <div class="noanswer-icon">🔕</div>
+  <div class="noanswer-title">Sin respuesta</div>
+  <div class="noanswer-sub">El vecino ha recibido la notificación<br>pero no ha contestado.</div>
+  <button class="btn-retry" onclick="goHome()">↩ Volver a intentarlo</button>
+  <button class="btn-hangup" onclick="goHome()">Cancelar</button>
+</div>
+
+<audio id="remote-audio" autoplay playsinline></audio>
+<video id="local-video" autoplay muted playsinline></video>
+
+<script>
+// ============================================================
+//  CONFIGURACIÓN
+// ============================================================
+const SERVER_URL   = 'wss://merry-joy-production-4504.up.railway.app';
+const API_BASE     = 'https://merry-joy-production-4504.up.railway.app/api';
+const STUN_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: 'turn:global.relay.metered.ca:443?transport=tcp',
+    username: 'e6cb7af71057fddef426ea95',
+    credential: 'el8RlAfkuUr8C3eOA'
+  },
+  {
+    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+    username: 'e6cb7af71057fddef426ea95',
+    credential: 'el8RlAfkuUr8C3eOA'
+  }
+];
+const RING_TIMEOUT_MS = 60000; // 60 segundos — tiempo para recibir push y contestar
+// ============================================================
+
+// ── Estado global ─────────────────────────────────────────
+let portalId   = '';
+let portalData = null;   // { name, address, city, floors: [{number, letters:[]}] }
+let callRoom   = '';
+let ws, pc, localStream;
+let muted = false;
+let timerInterval, timerSeconds = 0;
+let ringTimeout;
+
+// ── Leer portal_id de la URL ──────────────────────────────
+// El QR apunta a: https://tudominio.com/visitante.html?portal=abc123
+function getPortalId() {
+  const p = new URLSearchParams(location.search);
+  return p.get('portal') || '';
+}
+
+// ── Pantallas ─────────────────────────────────────────────
+const screens = ['screen-form','screen-calling','screen-connected','screen-noanswer'];
+function show(id) {
+  screens.forEach(s => {
+    document.getElementById(s).style.display = s === id ? (s === 'screen-form' ? 'block' : 'block') : 'none';
+  });
+}
+
+// ── Cargar datos del portal desde la API ──────────────────
+async function loadPortal() {
+  portalId = getPortalId();
+  if (!portalId) {
+    setBuilding('Portal no encontrado', 'URL incorrecta o QR inválido', '');
+    showError('No se encontró el identificador del portal en la URL.');
+    document.getElementById('screen-loading').style.display = 'none';
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${API_BASE}/portal/${portalId}/public`);
+    if (!res.ok) throw new Error('Portal no encontrado');
+    portalData = await res.json();
+
+    // Cabecera del edificio
+    setBuilding(portalData.name, portalData.address, portalData.city);
+
+    // Poblar selector de pisos
+    populateFloors(portalData.floors);
+
+    document.getElementById('screen-loading').style.display = 'none';
+    document.getElementById('form-content').style.display   = 'block';
+
+  } catch (err) {
+    setBuilding('Portal no disponible', '', '');
+    document.getElementById('screen-loading').innerHTML =
+      '<p style="color:#ef4444;font-size:13px;text-align:center">No se pudo cargar la información del portal.<br>Contacta con el administrador.</p>';
+  }
+}
+
+function setBuilding(name, address, city) {
+  document.getElementById('building-name').textContent    = name;
+  document.getElementById('building-address').textContent = address;
+  document.getElementById('building-city').textContent    = city;
+  document.title = name + ' — Portero Virtual';
+}
+
+// ── Poblar selectores ─────────────────────────────────────
+function populateFloors(floors) {
+  const sel = document.getElementById('sel-unit');
+  sel.innerHTML = '<option value="">— Selecciona tu vivienda —</option>';
+  floors.forEach(f => {
+    const opt = document.createElement('option');
+    // Soporta tanto formato nuevo (id+label) como antiguo (number+letters)
+    if (f.label) {
+      opt.value = f.id;
+      opt.textContent = f.label;
+    } else {
+      opt.value = f.number;
+      opt.textContent = f.number + 'º';
+    }
+    sel.appendChild(opt);
+  });
+}
+
+function onUnitChange() {
+  const sel       = document.getElementById('sel-unit');
+  const unitVal   = sel ? sel.value : '';
+  const unitLabel = sel ? (sel.options[sel.selectedIndex]?.text || '') : '';
+  const btnCall   = document.getElementById('btn-call');
+  const confirmBox = document.getElementById('confirm-box');
+  const ready = !!unitVal;
+
+  if (sel) sel.classList.toggle('empty', !ready);
+  btnCall.disabled = !ready;
+
+  if (ready && portalData) {
+    document.getElementById('confirm-dest').textContent = unitLabel;
+    document.getElementById('confirm-building-name').textContent = portalData.address || '';
+    confirmBox.classList.add('visible');
+  } else {
+    confirmBox.classList.remove('visible');
+  }
+}
+
+// Compatibilidad
+function onFloorChange()   { onUnitChange(); }
+function onSelectChange()  { onUnitChange(); }
+function updateCallButton(){ onUnitChange(); }
+
+// ── Iniciar llamada ───────────────────────────────────────
+async function startCall() {
+  clearError();
+  const sel     = document.getElementById('sel-unit');
+  const unitId  = sel.value;
+  const unitLabel = sel.options[sel.selectedIndex]?.text || unitId;
+
+  // La sala incluye el portal_id y el id de la vivienda
+  callRoom = `${portalId}-${unitId}`;
+
+  // Actualizar pantalla "llamando"
+  document.getElementById('calling-building-label').textContent = portalData.name;
+  document.getElementById('calling-dest-label').textContent     = unitLabel;
+  document.getElementById('calling-address-label').textContent  = portalData.address + (portalData.city ? ', ' + portalData.city : '');
+
+  // Pedir cámara + micrófono
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: true
+    });
+    document.getElementById('local-video').srcObject = localStream;
+  } catch (err) {
+    showError('No se pudo acceder a la cámara o el micrófono: ' + err.message);
+    return;
+  }
+
+  show('screen-calling');
+  setStep(1);
+
+  // Timeout sin respuesta + contador visual
+  let countdownSecs = RING_TIMEOUT_MS / 1000;
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = countdownSecs;
+  const countdownInterval = setInterval(() => {
+    countdownSecs--;
+    if (countdownEl) countdownEl.textContent = countdownSecs;
+    if (countdownSecs <= 0) clearInterval(countdownInterval);
+  }, 1000);
+
+  ringTimeout = setTimeout(() => {
+    clearInterval(countdownInterval);
+    if (ws) ws.close();
+    stopLocalStream();
+    show('screen-noanswer');
+  }, RING_TIMEOUT_MS);
+
+  connectWS();
+}
+
+// ── WebSocket ─────────────────────────────────────────────
+function connectWS() {
+  ws = new WebSocket(SERVER_URL);
+
+  ws.onopen = () => {
+    const selU = document.getElementById('sel-unit');
+    const floorId = selU ? selU.value : '';
+    const floorLabel = selU ? (selU.options[selU.selectedIndex]?.text || '') : '';
+    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel });
+    setStep(1);
+  };
+
+  ws.onmessage = async ({ data }) => {
+    const msg = JSON.parse(data);
+
+    if (msg.type === 'notification-sent') setStep(2);
+
+    if (msg.type === 'neighbor-ready') {
+      clearTimeout(ringTimeout);
+      setStep(3);
+      await createOffer();
+    }
+
+    if (msg.type === 'answer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    }
+
+    if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e) {}
+    }
+
+    if (msg.type === 'busy') {
+      clearTimeout(ringTimeout);
+      hangup(false);
+      showError('El vecino no está disponible en este momento.');
+      show('screen-form');
+    }
+
+    if (msg.type === 'hangup') hangup(false);
+    if (msg.type === 'chat') appendChatMsg(msg.message || msg.text, 'received', 'Vecino');
+  };
+
+  ws.onerror = () => {
+    clearTimeout(ringTimeout);
+    showError('Error de conexión con el servidor.');
+    show('screen-form');
+    stopLocalStream();
+  };
+}
+
+// ── WebRTC ────────────────────────────────────────────────
+async function createPeer() {
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'all' });
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.ontrack = ({ track, streams }) => {
+    if (track.kind === 'audio') {
+      document.getElementById('remote-audio').srcObject = streams[0];
+    }
+  };
+
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate) send({ type: 'ice', room: callRoom, candidate });
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') {
+      show('screen-connected');
+      startTimer();
+    }
+    if (['disconnected','failed','closed'].includes(pc.connectionState)) hangup(false);
+  };
+}
+
+async function createOffer() {
+  await createPeer();
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  send({ type: 'offer', room: callRoom, sdp: pc.localDescription });
+}
+
+
+// ── Chat ──────────────────────────────────────────────────
+function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  send({ type: 'chat', room: callRoom, message: text, from: 'visitor' });
+  appendChatMsg(text, 'sent', 'Tú');
+}
+
+function sendQuick(text) {
+  send({ type: 'chat', room: callRoom, message: text, from: 'visitor' });
   appendChatMsg(text, 'sent', 'Tú');
 }
 
