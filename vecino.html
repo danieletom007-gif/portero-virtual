@@ -110,8 +110,13 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .call-btn.mute.active{background:var(--orange)}
 .call-btn.chat-toggle{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
 /* Chat panel */
-.chat-panel{position:absolute;bottom:100px;left:12px;right:12px;background:rgba(20,20,22,.9);border-radius:var(--radius);padding:12px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;max-height:240px}
+.chat-panel{position:absolute;bottom:0;left:0;right:0;background:rgba(14,14,16,.95);border-radius:var(--radius) var(--radius) 0 0;padding:14px 12px 24px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;height:52vh;transition:all .3s}
 .chat-panel.open{display:flex}
+/* Vídeo reducido cuando chat abierto */
+#screen-call.chat-open #remote-video{height:48vh;width:100%;position:absolute;top:0;left:0;object-fit:cover}
+#screen-call.chat-open #video-placeholder{height:48vh}
+#screen-call.chat-open .call-overlay{height:48vh}
+#screen-call.chat-open .call-bottom{display:none}
 .chat-messages{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
 .chat-msg{font-size:13px;padding:6px 10px;border-radius:8px;max-width:85%;line-height:1.4}
 .chat-msg.sent{align-self:flex-end;background:var(--accent);color:#fff}
@@ -889,6 +894,12 @@ function endCall() {
   if (badge) { badge.classList.remove('show'); badge.textContent = '!'; }
   const chatPanel = document.getElementById('chat-panel');
   if (chatPanel) chatPanel.classList.remove('open');
+  const screenCall = document.getElementById('screen-call');
+  if (screenCall) screenCall.classList.remove('chat-open');
+  const chatMessages = document.getElementById('chat-messages');
+  if (chatMessages) chatMessages.innerHTML = '';
+  const chatInput = document.getElementById('chat-input-vecino');
+  if (chatInput) chatInput.value = '';
   showAllScreens('screen-standby');
 }
 
@@ -917,6 +928,8 @@ function toggleChat() {
   chatOpen = !chatOpen;
   const panel = document.getElementById('chat-panel');
   if (panel) panel.classList.toggle('open', chatOpen);
+  const screen = document.getElementById('screen-call');
+  if (screen) screen.classList.toggle('chat-open', chatOpen);
   if (chatOpen) {
     unreadChat = 0;
     const badge = document.getElementById('chat-badge');
