@@ -30,38 +30,34 @@ self.addEventListener('push', e => {
       tag:      'portero-llamada',
       renotify: true,
       requireInteraction: true,
-
-      // 🔥 CAMBIO IMPORTANTE: añadir ?contestar=true
-      data:     { url: data.url || '/portero-virtual/vecino.html?contestar=true' }
+      vibrate:  [300, 100, 300, 100, 300],
+      actions: [
+        { action: 'contestar', title: '📞 Contestar' },
+        { action: 'rechazar',  title: '❌ Rechazar'  }
+      ],
+      data: { url: data.url || '/portero-virtual/vecino.html' }
     })
   );
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const data = e.notification.data || {};
+  const data   = e.notification.data || {};
+  const url    = data.url || '/portero-virtual/vecino.html';
+  const action = e.action;
 
-  // 🔥 CAMBIO IMPORTANTE: añadir ?contestar=true
-  const url  = data.url || '/portero-virtual/vecino.html?contestar=true';
+  // Si rechaza — cerrar la notificación sin abrir la app
+  if (action === 'rechazar') return;
 
+  // Si contesta o pulsa la notificación — abrir la app con la URL completa
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // Buscar ventana de vecino ya abierta
       const vecino = list.find(c => c.url.includes('vecino'));
-
       if (vecino) {
-        // Hay ventana abierta — traerla al frente y navegar a la URL
         return vecino.focus().then(c => {
-          if (c && 'navigate' in c) {
-            return c.navigate(url);
-          }
-        }).catch(() => {
-          // Si navigate falla, abrir nueva ventana
-          return clients.openWindow(url);
-        });
+          if (c && 'navigate' in c) return c.navigate(url);
+        }).catch(() => clients.openWindow(url));
       }
-
-      // No hay ventana abierta — abrir la URL directamente
       return clients.openWindow(url);
     })
   );
