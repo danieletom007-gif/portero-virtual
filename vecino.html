@@ -313,6 +313,14 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
       <button class="quick-btn" onclick="sendChat('Vuelve en 10 minutos')">10 minutos</button>
       <button class="quick-btn" onclick="sendChat('No esperaba visita')">No esperaba visita</button>
     </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <input id="chat-input-vecino" type="text" placeholder="Escribe un mensaje..." maxlength="200"
+        style="flex:1;padding:8px 12px;border-radius:20px;background:rgba(255,255,255,0.12);color:#fff;border:none;font-size:14px;outline:none"
+        onkeydown="if(event.key==='Enter')sendChatInput()">
+      <button onclick="sendChatInput()" style="width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -920,6 +928,15 @@ function sendChat(message) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ type: 'chat', message, room: myRoom }));
   appendChatMsg(message, 'sent');
+}
+
+function sendChatInput() {
+  const input = document.getElementById('chat-input-vecino');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  sendChat(text);
+  input.value = '';
 }
 
 function receiveChatMessage(message) {
