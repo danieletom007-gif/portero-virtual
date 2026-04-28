@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Portero Virtual</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0c0c0e;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #ededf0;
+    --muted: #7a7a8a;
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.13);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.13);
+    --accent: #6366f1;
+    --accent-dim: rgba(99,102,241,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  /* ── Cabecera del edificio (lo primero que ve el visitante) ── */
+  .building-header {
+    width: 100%;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border2);
+    padding: 28px 24px 22px;
+    text-align: center;
+    position: relative;
+  }
+
+  .building-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0.7;
+  }
+
+  .portal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin-bottom: 14px;
+  }
+
+  .portal-badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Nombre del edificio — MUY prominente */
+  .building-name {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+
+  /* Dirección completa — grande y clara */
+  .building-address {
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .building-city {
+    font-size: 13px;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  /* ── Contenido principal ── */
+  .main {
+    width: 100%;
+    max-width: 420px;
+    padding: 28px 20px 32px;
+    flex: 1;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border2);
+  }
+
+  /* ── Selectores de piso/letra ── */
+  .selects-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .select-wrap {
+    position: relative;
+  }
+
+  .select-label-inner {
+    position: absolute;
+    top: 9px; left: 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  select {
+    width: 100%;
+    padding: 28px 36px 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: border-color 0.2s;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  }
+
+  select option { background: #1e1e24; }
+
+  /* Select no seleccionado */
+  select.empty { color: var(--muted); font-size: 15px; font-weight: 400; }
+
+  /* ── Aviso de confirmación ── */
+  .confirm-box {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .confirm-box.visible { display: flex; }
+
+  .confirm-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--green-dim);
+    border: 1px solid rgba(34,197,94,0.2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .confirm-text { font-size: 13px; line-height: 1.4; }
+  .confirm-text strong { display: block; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .confirm-text span { color: var(--muted); }
+
+  /* ── Botón llamar ── */
+  .btn-call {
+    width: 100%;
+    padding: 17px;
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+  }
+
+  .btn-call:disabled {
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .btn-call:not(:disabled):active { transform: scale(0.98); }
+
+  /* ── PANTALLA: LLAMANDO ── */
+  #screen-calling { display: none; padding: 20px; }
+
+  .calling-building {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .calling-dest {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .calling-address-small {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .steps-panel {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 24px;
+  }
+
+  .status-step {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--muted);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .status-step:last-child { border-bottom: none; padding-bottom: 0; }
+  .status-step:first-child { padding-top: 0; }
+
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--surface); border: 1.5px solid var(--border2);
+    flex-shrink: 0; transition: all 0.35s;
+  }
+  .step-dot.done { background: var(--green); border-color: var(--green); }
+  .step-dot.active {
+    background: var(--green); border-color: var(--green);
+    animation: pulse-dot 1s infinite;
+  }
+
+  .ring-wrap { display: flex; justify-content: center; margin: 0 0 28px; }
+  .ring {
+    width: 76px; height: 76px; border-radius: 50%;
+    background: var(--green-dim);
+    border: 1.5px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .ring::before, .ring::after {
+    content: ''; position: absolute; border-radius: 50%;
+    border: 1px solid var(--green);
+    animation: ripple 2s ease-out infinite;
+  }
+  .ring::after { animation-delay: 1s; }
+  @keyframes ripple {
+    0%   { width: 76px; height: 76px; opacity: 0.7; }
+    100% { width: 140px; height: 140px; opacity: 0; }
+  }
+
+  .btn-hangup {
+    width: 100%; padding: 15px;
+    background: var(--red-dim); color: var(--red);
+    border: 1px solid rgba(239,68,68,0.25); border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .btn-hangup:active { transform: scale(0.98); }
+
+  /* ── PANTALLA: CONECTADO ── */
+  #screen-connected { display: none; padding: 20px; }
+
+  .connected-pill {
+    display: inline-flex;
+    align-items: center; gap: 7px;
+    background: var(--green-dim);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px; font-weight: 600;
+    color: var(--green);
+    margin-bottom: 18px;
+  }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse-dot 2s infinite; }
+
+  .info-panel {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+  }
+  .info-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .info-row + .info-row { margin-top: 10px; }
+  .info-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .info-row span { color: var(--text); font-weight: 500; }
+
+  .timer { font-family: 'DM Mono', monospace; font-size: 22px; text-align: center; margin: 14px 0 22px; letter-spacing: 0.1em; }
+
+  .controls-row { display: grid; grid-template-columns: 56px 1fr; gap: 10px; }
+  .btn-mute {
+    padding: 14px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 14px;
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .btn-mute.muted { background: var(--red-dim); border-color: rgba(239,68,68,0.3); color: var(--red); }
+
+  /* ── PANTALLA: SIN RESPUESTA ── */
+  #screen-noanswer { display: none; padding: 20px; text-align: center; }
+  .noanswer-icon { font-size: 44px; margin: 20px 0 14px; }
+  .noanswer-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .noanswer-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  .btn-retry {
+    width: 100%; padding: 15px; background: var(--surface2);
+    border: 1px solid var(--border2); border-radius: 14px;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: 10px;
+    transition: all 0.2s;
+  }
+
+  .error-msg {
+    font-size: 13px; color: var(--red); margin-top: 12px; padding: 11px 14px;
+    background: var(--red-dim); border-radius: 10px; line-height: 1.4;
+    border: 1px solid rgba(239,68,68,0.2);
+  }
+
+
+  /* ── Chat ── */
+  .chat-panel {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 14px; margin-top: 16px; overflow: hidden;
+  }
+  .chat-header {
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border2);
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .chat-messages {
+    height: 140px; overflow-y: auto; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    scroll-behavior: smooth;
+  }
+  .chat-msg {
+    max-width: 85%; padding: 7px 11px; border-radius: 12px;
+    font-size: 13px; line-height: 1.4; word-break: break-word;
+  }
+  .chat-msg.sent {
+    background: var(--accent); color: white;
+    align-self: flex-end; border-bottom-right-radius: 4px;
+  }
+  .chat-msg.received {
+    background: var(--surface); color: var(--text);
+    align-self: flex-start; border-bottom-left-radius: 4px;
+    border: 1px solid var(--border2);
+  }
+  .chat-msg-label { font-size: 10px; opacity: 0.7; margin-bottom: 2px; }
+  .chat-empty { text-align: center; color: var(--muted); font-size: 12px; padding: 20px 0; }
+  .chat-input-row {
+    display: flex; gap: 6px; padding: 8px 10px;
+    border-top: 1px solid var(--border2);
+  }
+  .chat-input {
+    flex: 1; padding: 8px 12px; background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 20px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text);
+  }
+  .chat-input:focus { outline: none; border-color: var(--accent); }
+  .chat-send {
+    width: 34px; height: 34px; border-radius: 50%; border: none;
+    background: var(--accent); color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.15s;
+  }
+  .chat-send:active { transform: scale(0.92); }
+  .chat-quickreplies {
+    padding: 6px 10px 8px; display: flex; flex-wrap: wrap; gap: 5px;
+    border-bottom: 1px solid var(--border2);
+  }
+  .chat-quick {
+    padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    border: 1px solid var(--border2); background: var(--surface);
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .chat-quick:active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .chat-new-badge {
+    display: none; background: var(--accent); color: white;
+    font-size: 10px; font-weight: 700; padding: 1px 6px;
+    border-radius: 10px; margin-left: 6px;
+  }
+  audio, video { display: none; }
+
+  /* Loading state mientras carga datos del portal */
+  #screen-loading {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 200px; color: var(--muted); font-size: 14px; gap: 12px;
+  }
+  .spinner {
+    width: 24px; height: 24px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     CABECERA: NOMBRE Y DIRECCIÓN DEL EDIFICIO
+     Siempre visible en todas las pantallas
+════════════════════════════════════════════ -->
+<div class="building-header" id="building-header">
+  <div class="portal-badge">
+    <div class="portal-badge-dot"></div>
+    Portero virtual
+  </div>
+  <div class="building-name" id="building-name">Cargando...</div>
+  <div class="building-address" id="building-address"></div>
+  <div class="building-city" id="building-city"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 1: FORMULARIO DE SELECCIÓN
+════════════════════════════════════════════ -->
+<div class="main" id="screen-form">
+
+  <div id="screen-loading">
+    <div class="spinner"></div>
+    Cargando información del portal...
+  </div>
+
+  <div id="form-content" style="display:none">
+
+    <div class="section-label">¿A quién desea llamar?</div>
+
+    <div class="select-wrap" style="margin-bottom:22px">
+      <div class="select-label-inner">Vivienda</div>
+      <select id="sel-unit" class="empty" onchange="onUnitChange()" ontouchend="setTimeout(onUnitChange,100)" style="font-size:16px;padding:28px 36px 12px 14px">
+        <option value="">— Selecciona tu vivienda —</option>
+      </select>
+    </div>
+
+    <!-- Caja de confirmación: aparece al elegir piso y letra -->
+    <div class="confirm-box" id="confirm-box">
+      <div class="confirm-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <div class="confirm-text">
+        <strong id="confirm-dest">—</strong>
+        <span id="confirm-building-name">—</span>
+      </div>
+    </div>
+
+    <button class="btn-call" id="btn-call" disabled onclick="startCall()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+      Llamar
+    </button>
+
+    <div id="form-error" class="error-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 2: LLAMANDO
+════════════════════════════════════════════ -->
+<div id="screen-calling">
+  <p class="calling-building" id="calling-building-label">—</p>
+  <div class="calling-dest" id="calling-dest-label">—</div>
+  <p class="calling-address-small" id="calling-address-label">—</p>
+
+  <div class="steps-panel">
+    <div class="status-step">
+      <div class="step-dot" id="step1"></div>
+      <span id="step1-text">Avisando al vecino...</span>
+    </div>
+    <div class="status-step">
+      <div class="step-dot" id="step2"></div>
+      <span>Esperando que conteste...</span>
+    </div>
+    <div class="status-step">
+      <div class="step-dot" id="step3"></div>
+      <span>Conectando videollamada...</span>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:16px">
+    Cancelando en <span id="ring-countdown">60</span>s
+  </div>
+
+  <div class="ring-wrap">
+    <div class="ring">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="#22c55e">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+    </div>
+  </div>
+
+  <button class="btn-hangup" onclick="hangup()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
+      <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+    </svg>
+    Cancelar llamada
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 3: CONECTADO
+════════════════════════════════════════════ -->
+<div id="screen-connected">
+  <div class="connected-pill">
+    <div class="dot-live"></div>
+    Comunicación activa
+  </div>
+
+  <div class="info-panel">
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+          <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+        </svg>
+      </div>
+      Tu cámara → <span>visible para el vecino</span>
+    </div>
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round">
+          <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+        </svg>
+      </div>
+      Audio → <span>bidireccional</span>
+    </div>
+  </div>
+
+  <div class="timer" id="timer">00:00</div>
+
+  <div class="controls-row">
+    <button class="btn-mute" id="btn-mute" onclick="toggleMute()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/>
+        <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+      </svg>
+    </button>
+    <button class="btn-hangup" onclick="hangup()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)">
+        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+      </svg>
+      Colgar
+    </button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <span>💬 Chat <span class="chat-new-badge" id="chat-new-badge">nuevo</span></span>
+      <span style="font-weight:400;font-size:11px">Solo visible durante la llamada</span>
+    </div>
+    <div class="chat-quickreplies" id="visitor-quickreplies">
+      <span class="chat-quick" onclick="sendQuick('¿Puedes bajar a abrir?')">¿Puedes bajar?</span>
+      <span class="chat-quick" onclick="sendQuick('Soy del reparto, tengo un paquete')">Tengo un paquete</span>
+      <span class="chat-quick" onclick="sendQuick('Vale, espero aquí')">Espero aquí</span>
+      <span class="chat-quick" onclick="sendQuick('De acuerdo, gracias')">De acuerdo</span>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" id="chat-input" placeholder="Escribe un mensaje..." maxlength="200" onkeydown="if(event.key==='Enter')sendChatMsg()">
+      <button class="chat-send" onclick="sendChatMsg()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 4: SIN RESPUESTA
+════════════════════════════════════════════ -->
+<div id="screen-noanswer">
+  <div class="noanswer-icon">🔕</div>
+  <div class="noanswer-title">Sin respuesta</div>
+  <div class="noanswer-sub">El vecino ha recibido la notificación<br>pero no ha contestado.</div>
+  <button class="btn-retry" onclick="goHome()">↩ Volver a intentarlo</button>
+  <button class="btn-hangup" onclick="goHome()">Cancelar</button>
+</div>
+
+<audio id="remote-audio" autoplay playsinline></audio>
+<video id="local-video" autoplay muted playsinline></video>
+
+<script>
+// ============================================================
+//  CONFIGURACIÓN
+// ============================================================
+const SERVER_URL   = 'wss://merry-joy-production-4504.up.railway.app';
+const API_BASE     = 'https://merry-joy-production-4504.up.railway.app/api';
+const STUN_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: 'turn:global.relay.metered.ca:443?transport=tcp',
+    username: 'e6cb7af71057fddef426ea95',
+    credential: 'el8RlAfkuUr8C3eOA'
+  },
+  {
+    urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+    username: 'e6cb7af71057fddef426ea95',
+    credential: 'el8RlAfkuUr8C3eOA'
+  }
+];
+const RING_TIMEOUT_MS = 60000; // 60 segundos — tiempo para recibir push y contestar
+// ============================================================
+
+// ── Estado global ─────────────────────────────────────────
+let portalId   = '';
+let portalData = null;   // { name, address, city, floors: [{number, letters:[]}] }
+let callRoom   = '';
+let ws, pc, localStream;
+let muted = false;
+let timerInterval, timerSeconds = 0;
+let ringTimeout;
+
+// ── Leer portal_id de la URL ──────────────────────────────
+// El QR apunta a: https://tudominio.com/visitante.html?portal=abc123
+function getPortalId() {
+  const p = new URLSearchParams(location.search);
+  return p.get('portal') || '';
+}
+
+// ── Pantallas ─────────────────────────────────────────────
+const screens = ['screen-form','screen-calling','screen-connected','screen-noanswer'];
+function show(id) {
+  screens.forEach(s => {
+    document.getElementById(s).style.display = s === id ? (s === 'screen-form' ? 'block' : 'block') : 'none';
+  });
+}
+
+// ── Cargar datos del portal desde la API ──────────────────
+async function loadPortal() {
+  portalId = getPortalId();
+  if (!portalId) {
+    setBuilding('Portal no encontrado', 'URL incorrecta o QR inválido', '');
+    showError('No se encontró el identificador del portal en la URL.');
+    document.getElementById('screen-loading').style.display = 'none';
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${API_BASE}/portal/${portalId}/public`);
+    if (!res.ok) throw new Error('Portal no encontrado');
+    portalData = await res.json();
+
+    // Cabecera del edificio
+    setBuilding(portalData.name, portalData.address, portalData.city);
+
+    // Poblar selector de pisos
+    populateFloors(portalData.floors);
+
+    document.getElementById('screen-loading').style.display = 'none';
+    document.getElementById('form-content').style.display   = 'block';
+
+  } catch (err) {
+    setBuilding('Portal no disponible', '', '');
+    document.getElementById('screen-loading').innerHTML =
+      '<p style="color:#ef4444;font-size:13px;text-align:center">No se pudo cargar la información del portal.<br>Contacta con el administrador.</p>';
+  }
+}
+
+function setBuilding(name, address, city) {
+  document.getElementById('building-name').textContent    = name;
+  document.getElementById('building-address').textContent = address;
+  document.getElementById('building-city').textContent    = city;
+  document.title = name + ' — Portero Virtual';
+}
+
+// ── Poblar selectores ─────────────────────────────────────
+function populateFloors(floors) {
+  const sel = document.getElementById('sel-unit');
+  sel.innerHTML = '<option value="">— Selecciona tu vivienda —</option>';
+  floors.forEach(f => {
+    const opt = document.createElement('option');
+    // Soporta tanto formato nuevo (id+label) como antiguo (number+letters)
+    if (f.label) {
+      opt.value = f.id;
+      opt.textContent = f.label;
+    } else {
+      opt.value = f.number;
+      opt.textContent = f.number + 'º';
+    }
+    sel.appendChild(opt);
+  });
+}
+
+function onUnitChange() {
+  const sel       = document.getElementById('sel-unit');
+  const unitVal   = sel ? sel.value : '';
+  const unitLabel = sel ? (sel.options[sel.selectedIndex]?.text || '') : '';
+  const btnCall   = document.getElementById('btn-call');
+  const confirmBox = document.getElementById('confirm-box');
+  const ready = !!unitVal;
+
+  if (sel) sel.classList.toggle('empty', !ready);
+  btnCall.disabled = !ready;
+
+  if (ready && portalData) {
+    document.getElementById('confirm-dest').textContent = unitLabel;
+    document.getElementById('confirm-building-name').textContent = portalData.address || '';
+    confirmBox.classList.add('visible');
+  } else {
+    confirmBox.classList.remove('visible');
+  }
+}
+
+// Compatibilidad
+function onFloorChange()   { onUnitChange(); }
+function onSelectChange()  { onUnitChange(); }
+function updateCallButton(){ onUnitChange(); }
+
+// ── Iniciar llamada ───────────────────────────────────────
+async function startCall() {
+  clearError();
+  const sel     = document.getElementById('sel-unit');
+  const unitId  = sel.value;
+  const unitLabel = sel.options[sel.selectedIndex]?.text || unitId;
+
+  // La sala incluye el portal_id y el id de la vivienda
+  callRoom = `${portalId}-${unitId}`;
+
+  // Actualizar pantalla "llamando"
+  document.getElementById('calling-building-label').textContent = portalData.name;
+  document.getElementById('calling-dest-label').textContent     = unitLabel;
+  document.getElementById('calling-address-label').textContent  = portalData.address + (portalData.city ? ', ' + portalData.city : '');
+
+  // Pedir cámara + micrófono
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: true
+    });
+    document.getElementById('local-video').srcObject = localStream;
+  } catch (err) {
+    showError('No se pudo acceder a la cámara o el micrófono: ' + err.message);
+    return;
+  }
+
+  show('screen-calling');
+  setStep(1);
+
+  // Timeout sin respuesta + contador visual
+  let countdownSecs = RING_TIMEOUT_MS / 1000;
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = countdownSecs;
+  const countdownInterval = setInterval(() => {
+    countdownSecs--;
+    if (countdownEl) countdownEl.textContent = countdownSecs;
+    if (countdownSecs <= 0) clearInterval(countdownInterval);
+  }, 1000);
+
+  ringTimeout = setTimeout(() => {
+    clearInterval(countdownInterval);
+    if (ws) ws.close();
+    stopLocalStream();
+    show('screen-noanswer');
+  }, RING_TIMEOUT_MS);
+
+  connectWS();
+}
+
+// ── WebSocket ─────────────────────────────────────────────
+function connectWS() {
+  ws = new WebSocket(SERVER_URL);
+
+  ws.onopen = () => {
+    const selU = document.getElementById('sel-unit');
+    const floorId = selU ? selU.value : '';
+    const floorLabel = selU ? (selU.options[selU.selectedIndex]?.text || '') : '';
+    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel });
+    setStep(1);
+  };
+
+  ws.onmessage = async ({ data }) => {
+    const msg = JSON.parse(data);
+
+    if (msg.type === 'notification-sent') setStep(2);
+
+    if (msg.type === 'neighbor-ready') {
+      clearTimeout(ringTimeout);
+      setStep(3);
+      await createOffer();
+    }
+
+    if (msg.type === 'answer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    }
+
+    if (msg.type === 'ice') {
+      try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e) {}
+    }
+
+    if (msg.type === 'busy') {
+      clearTimeout(ringTimeout);
+      hangup(false);
+      showError('El vecino no está disponible en este momento.');
+      show('screen-form');
+    }
+
+    if (msg.type === 'hangup') hangup(false);
+    if (msg.type === 'chat') appendChatMsg(msg.text, 'received', 'Vecino');
+  };
+
+  ws.onerror = () => {
+    clearTimeout(ringTimeout);
+    showError('Error de conexión con el servidor.');
+    show('screen-form');
+    stopLocalStream();
+  };
+}
+
+// ── WebRTC ────────────────────────────────────────────────
+async function createPeer() {
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'all' });
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.ontrack = ({ track, streams }) => {
+    if (track.kind === 'audio') {
+      document.getElementById('remote-audio').srcObject = streams[0];
+    }
+  };
+
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate) send({ type: 'ice', room: callRoom, candidate });
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') {
+      show('screen-connected');
+      startTimer();
+    }
+    if (['disconnected','failed','closed'].includes(pc.connectionState)) hangup(false);
+  };
+}
+
+async function createOffer() {
+  await createPeer();
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  send({ type: 'offer', room: callRoom, sdp: pc.localDescription });
+}
+
+
+// ── Chat ──────────────────────────────────────────────────
+function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  send({ type: 'chat', room: callRoom, text, from: 'visitor' });
+  appendChatMsg(text, 'sent', 'Tú');
+}
+
+function sendQuick(text) {
+  send({ type: 'chat', room: callRoom, text, from: 'visitor' });
+  appendChatMsg(text, 'sent', 'Tú');
+}
+
+function appendChatMsg(text, cls, label) {
+  const container = document.getElementById('chat-messages');
+  const empty     = document.getElementById('chat-empty');
+  if (empty) empty.remove();
+
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + cls;
+  msg.innerHTML = `<div class="chat-msg-label">${label}</div>${escapeHtml(text)}`;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+
+  if (cls === 'received') {
+    const badge = document.getElementById('chat-new-badge');
+    badge.style.display = 'inline';
+    setTimeout(() => badge.style.display = 'none', 3000);
+  }
+}
+
+function clearChat() {
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '<div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>';
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Colgar ────────────────────────────────────────────────
+function hangup(notify = true) {
+  clearChat();
+  clearTimeout(ringTimeout);
+  const countdownEl = document.getElementById('ring-countdown');
+  if (countdownEl) countdownEl.textContent = '';
+  stopTimer();
+  if (notify && ws && ws.readyState === WebSocket.OPEN) send({ type: 'hangup', room: callRoom });
+  if (pc) { pc.close(); pc = null; }
+  stopLocalStream();
+  if (ws) { ws.close(); ws = null; }
+  show('screen-form');
+}
+
+function goHome() { show('screen-form'); }
+
+// ── Mute ──────────────────────────────────────────────────
+function toggleMute() {
+  muted = !muted;
+  if (localStream) localStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  document.getElementById('btn-mute').classList.toggle('muted', muted);
+}
+
+// ── Timer ─────────────────────────────────────────────────
+function startTimer() {
+  timerSeconds = 0;
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2,'0');
+    const s = String(timerSeconds % 60).padStart(2,'0');
+    document.getElementById('timer').textContent = m + ':' + s;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+// ── Pasos de progreso ─────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('step' + i);
+    if (i < n)  { dot.classList.add('done');   dot.classList.remove('active'); }
+    if (i === n){ dot.classList.add('active'); dot.classList.remove('done');  }
+    if (i > n)  { dot.classList.remove('done','active'); }
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function stopLocalStream() {
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+}
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function clearError() {
+  document.getElementById('form-error').style.display = 'none';
+}
+
+// ── Arrancar ──────────────────────────────────────────────
+loadPortal();
+</script>
+</body>
+</html>
