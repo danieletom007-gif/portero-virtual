@@ -964,6 +964,10 @@ function toggleMute() {
   }
   const label = document.getElementById('mute-label');
   if (label) label.textContent = isMuted ? 'Audio cortado' : 'Silenciar';
+  // Notificar al visitante del estado del audio
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'mute', muted: isMuted, room: myRoom }));
+  }
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────────────────────
