@@ -103,22 +103,25 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .call-top-label{font-size:13px;font-weight:500;color:#fff}
 .call-timer{font-size:12px;color:rgba(255,255,255,.7);margin-left:auto}
 /* Mitad inferior: chat + botones */
-#call-bottom-section{flex:1;display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
+#call-bottom-section{flex:1;display:flex;flex-direction:column;background:#1e1e24;overflow:hidden;border-top:1px solid rgba(255,255,255,.13)}
 /* Chat — mismo estilo que visitante */
-.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;border-bottom:1px solid var(--bg3)}
-.chat-header-title{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.5px}
-.chat-header-sub{font-size:10px;color:var(--text3)}
-.chat-quickreplies{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px}
-.quick-btn{font-size:12px;padding:5px 10px;border-radius:20px;background:var(--bg4);border:1px solid var(--bg3);color:var(--text);cursor:pointer;white-space:nowrap}
-.quick-btn:active{opacity:.7}
-.chat-messages{flex:1;overflow-y:auto;padding:6px 12px;display:flex;flex-direction:column;gap:6px}
-.chat-empty{text-align:center;color:var(--text3);font-size:12px;padding:16px 0}
-.chat-msg{font-size:13px;padding:6px 10px;border-radius:8px;max-width:85%;line-height:1.4}
-.chat-msg.sent{align-self:flex-end;background:var(--accent);color:#fff}
-.chat-msg.recv{align-self:flex-start;background:var(--bg4);color:var(--text)}
-.chat-input-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--bg3)}
-.chat-input{flex:1;padding:8px 12px;border-radius:20px;background:var(--bg3);color:var(--text);border:none;font-size:14px;outline:none}
-.chat-send{width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Chat — colores idénticos a visitante.html */
+.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.13);font-size:12px;font-weight:600;color:#7a7a8a;text-transform:uppercase;letter-spacing:.07em}
+.chat-header-title{font-size:12px;font-weight:600;color:#7a7a8a;letter-spacing:.07em;text-transform:uppercase}
+.chat-header-sub{font-size:10px;color:#7a7a8a}
+.chat-quickreplies{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px 8px;border-bottom:1px solid rgba(255,255,255,.13)}
+.quick-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:#16161a;border:1px solid rgba(255,255,255,.13);color:#7a7a8a;cursor:pointer;white-space:nowrap;transition:all .15s}
+.quick-btn:active{background:rgba(99,102,241,.15);border-color:#6366f1;color:#6366f1}
+.chat-messages{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
+.chat-empty{text-align:center;color:#7a7a8a;font-size:12px;padding:20px 0}
+.chat-msg{max-width:85%;padding:7px 11px;border-radius:12px;font-size:13px;line-height:1.4;word-break:break-word}
+.chat-msg.sent{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg.recv{background:#16161a;color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid rgba(255,255,255,.13)}
+.chat-input-row{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.13)}
+.chat-input{flex:1;padding:8px 12px;background:#16161a;border:1px solid rgba(255,255,255,.13);border-radius:20px;font-size:13px;color:var(--text);outline:none}
+.chat-input:focus{border-color:var(--accent)}
+.chat-send{width:34px;height:34px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.chat-send:active{transform:scale(.92)}
 /* Botones acción debajo del chat */
 .call-action-row{display:flex;gap:10px;padding:8px 12px 12px}
 .call-action-row button{flex:1;padding:14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
