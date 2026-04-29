@@ -233,17 +233,13 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
     <div class="standby-logo">
       <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
     </div>
-    <div class="standby-label" id="standby-label">Mi portero</div>
+    <div class="standby-label" id="standby-portal-header">Mi portero</div>
     <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
     <span class="standby-connected-badge"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>Conectado</span>
   </div>
 
   <div class="standby-body">
   <div class="standby-actions">
-    <div class="standby-row">
-      <span class="standby-row-label">Portal</span>
-      <span class="standby-row-val" id="sb-portal">—</span>
-    </div>
     <div class="standby-row">
       <span class="standby-row-label">Vivienda</span>
       <span class="standby-row-val" id="sb-floor">—</span>
@@ -277,9 +273,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
     </div>
   </div>
 
-  <button class="btn-secondary" style="margin-top:24px;max-width:360px" onclick="showAllScreens('screen-setup')">
-    Cambiar configuración
-  </button>
+
   </div>
 </div>
 
@@ -703,6 +697,8 @@ function updateStandbyUI() {
   const sbSub    = document.getElementById('standby-sub');
 
   if (sbPortal) sbPortal.textContent = myPortalName || (myPortalId ? myPortalId.slice(0,8) + '…' : '—');
+  const sbPortalHeader = document.getElementById('standby-portal-header');
+  if (sbPortalHeader) sbPortalHeader.textContent = myPortalName || 'Mi portero';
   if (sbFloor)  sbFloor.textContent  = myLabel || myFloorId || '—';
   if (sbLabel)  sbLabel.textContent  = myLabel || 'Mi portero';
   if (sbSub)    sbSub.textContent    = 'Esperando llamadas…';
