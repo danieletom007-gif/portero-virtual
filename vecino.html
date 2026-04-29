@@ -940,9 +940,11 @@ function toggleMute() {
   if (localStream) {
     localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
   }
-  // Silenciar/activar audio del visitante
+  // Silenciar/activar audio del visitante (tanto en <audio> como en <video>)
   const visitorAudio = document.getElementById('visitor-audio');
   if (visitorAudio) visitorAudio.muted = isMuted;
+  const remoteVideo = document.getElementById('remote-video');
+  if (remoteVideo) remoteVideo.muted = isMuted;
   // Actualizar botón: naranja = activo, negro+tachado = silenciado
   const btn = document.getElementById('btn-mute');
   if (btn) btn.classList.toggle('active', !isMuted);
