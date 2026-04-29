@@ -363,7 +363,8 @@ const TURN_CONFIG = {
 
 // ─── VARIABLES GLOBALES — ¡SOLO UNA DECLARACIÓN DE CADA UNA! ─────────────────
 let myRoom     = '';
-let myPortalId = '';
+let myPortalId   = '';
+let myPortalName = ''; // nombre del portal para mostrar en standby
 let myFloorId  = '';   // ID de BD de la vivienda (nuevo sistema)
 let myFloor    = '';   // número (legacy)
 let myLetter   = '';   // letra (legacy)
@@ -434,7 +435,8 @@ function isInstalledApp() {
 
 function loadStoredConfig() {
   myRoom     = localStorage.getItem('portero-room')     || '';
-  myPortalId = localStorage.getItem('portero-portal')   || urlPortal || '';
+  myPortalId   = localStorage.getItem('portero-portal')      || urlPortal || '';
+  myPortalName = localStorage.getItem('portero-portal-name') || '';
   myFloorId  = localStorage.getItem('portero-floorId')  || urlFloorId || '';
   myFloor    = localStorage.getItem('portero-floor')    || '';
   myLetter   = localStorage.getItem('portero-letter')   || '';
@@ -571,8 +573,10 @@ async function loadPortalInfo() {
     }
 
     // Guardar portalId
-    myPortalId = data.id || pid;
+    myPortalId   = data.id || pid;
+    myPortalName = data.name || '';
     localStorage.setItem('portero-portal', myPortalId);
+    localStorage.setItem('portero-portal-name', myPortalName);
 
   } catch (e) {
     console.error('loadPortalInfo error:', e);
@@ -667,7 +671,7 @@ function updateStandbyUI() {
   const sbLabel  = document.getElementById('standby-label');
   const sbSub    = document.getElementById('standby-sub');
 
-  if (sbPortal) sbPortal.textContent = myPortalId ? myPortalId.slice(0,8) + '…' : '—';
+  if (sbPortal) sbPortal.textContent = myPortalName || (myPortalId ? myPortalId.slice(0,8) + '…' : '—');
   if (sbFloor)  sbFloor.textContent  = myLabel || myFloorId || '—';
   if (sbLabel)  sbLabel.textContent  = myLabel || 'Mi portero';
   if (sbSub)    sbSub.textContent    = 'Esperando llamadas…';
