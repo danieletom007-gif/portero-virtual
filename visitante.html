@@ -861,6 +861,11 @@ function connectWS() {
 
     if (msg.type === 'hangup') hangup(false);
     if (msg.type === 'chat') appendChatMsg(msg.message || msg.text, 'received', 'Vecino');
+    if (msg.type === 'mute') {
+      document.querySelectorAll('.audio-status-label').forEach(el => {
+        el.textContent = msg.muted ? 'en silencio, usa el chat' : 'activo';
+      });
+    }
   };
 
   ws.onerror = () => {
