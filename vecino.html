@@ -96,33 +96,35 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .btn-icon{width:28px;height:28px;fill:#fff}
 /* ---- CALL ---- */
 #screen-call{position:fixed;inset:0;background:#000;display:flex;flex-direction:column}
+/* Mitad superior: vídeo */
+#call-video-section{position:relative;height:50vh;flex-shrink:0;background:#000}
 #remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.call-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:env(safe-area-inset-top,20px) 16px env(safe-area-inset-bottom,24px)}
-.call-top{display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(0,0,0,.45);border-radius:12px;backdrop-filter:blur(6px)}
-.call-top-label{font-size:14px;font-weight:500;color:#fff}
-.call-timer{font-size:13px;color:rgba(255,255,255,.6);margin-left:auto}
-.call-bottom{display:flex;justify-content:center;gap:20px;align-items:center}
-.call-btn{width:60px;height:60px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
-.call-btn:active{transform:scale(.9)}
-.call-btn svg{width:24px;height:24px;fill:#fff}
-.call-btn.hangup{background:var(--red);width:70px;height:70px}
-.call-btn.mute{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
-.call-btn.mute.active{background:var(--orange)}
-.call-btn.chat-toggle{background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
-/* Chat panel */
-.chat-panel{position:absolute;bottom:0;left:0;right:0;background:rgba(14,14,16,.95);border-radius:var(--radius) var(--radius) 0 0;padding:14px 12px 24px;backdrop-filter:blur(8px);display:none;flex-direction:column;gap:8px;height:52vh;transition:all .3s}
-.chat-panel.open{display:flex}
-/* Vídeo reducido cuando chat abierto */
-#screen-call.chat-open #remote-video{height:48vh;width:100%;position:absolute;top:0;left:0;object-fit:cover}
-#screen-call.chat-open #video-placeholder{height:48vh}
-#screen-call.chat-open .call-overlay{height:48vh}
-#screen-call.chat-open .call-bottom{display:none}
-.chat-messages{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
+.call-top{position:absolute;top:8px;left:8px;right:8px;display:flex;align-items:center;gap:12px;padding:6px 10px;background:rgba(0,0,0,.5);border-radius:10px;z-index:2}
+.call-top-label{font-size:13px;font-weight:500;color:#fff}
+.call-timer{font-size:12px;color:rgba(255,255,255,.7);margin-left:auto}
+/* Mitad inferior: chat + botones */
+#call-bottom-section{flex:1;display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
+/* Chat — mismo estilo que visitante */
+.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;border-bottom:1px solid var(--bg3)}
+.chat-header-title{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.5px}
+.chat-header-sub{font-size:10px;color:var(--text3)}
+.chat-quickreplies{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px}
+.quick-btn{font-size:12px;padding:5px 10px;border-radius:20px;background:var(--bg4);border:1px solid var(--bg3);color:var(--text);cursor:pointer;white-space:nowrap}
+.quick-btn:active{opacity:.7}
+.chat-messages{flex:1;overflow-y:auto;padding:6px 12px;display:flex;flex-direction:column;gap:6px}
+.chat-empty{text-align:center;color:var(--text3);font-size:12px;padding:16px 0}
 .chat-msg{font-size:13px;padding:6px 10px;border-radius:8px;max-width:85%;line-height:1.4}
 .chat-msg.sent{align-self:flex-end;background:var(--accent);color:#fff}
 .chat-msg.recv{align-self:flex-start;background:var(--bg4);color:var(--text)}
-.chat-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.quick-btn{font-size:12px;padding:5px 10px;border-radius:20px;background:var(--bg4);border:1px solid var(--bg3);color:var(--text);cursor:pointer;white-space:nowrap}
+.chat-input-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--bg3)}
+.chat-input{flex:1;padding:8px 12px;border-radius:20px;background:var(--bg3);color:var(--text);border:none;font-size:14px;outline:none}
+.chat-send{width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Botones acción debajo del chat */
+.call-action-row{display:flex;gap:10px;padding:8px 12px 12px}
+.call-action-row button{flex:1;padding:14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-mute-full{background:var(--bg3);color:var(--text)}
+.btn-mute-full.active{background:var(--orange);color:#fff}
+.btn-hangup-full{background:var(--red);color:#fff}
 .quick-btn:active{opacity:.7}
 /* Notification badge sobre chat button */
 .chat-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);font-size:10px;display:none;align-items:center;justify-content:center;color:#fff;font-weight:600}
@@ -278,55 +280,57 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 <!-- ════════════ PANTALLA: LLAMADA ════════════ -->
 <div id="screen-call" style="display:none">
   <audio id="visitor-audio" autoplay playsinline></audio>
-<video id="remote-video" autoplay playsinline webkit-playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
-<div id="video-placeholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;z-index:5;transition:opacity 0.5s">
-  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-  <p style="color:rgba(255,255,255,0.35);font-size:14px;margin-top:12px">Conectando vídeo...</p>
-</div>
 
-  <div class="call-overlay">
+  <!-- Mitad superior: vídeo -->
+  <div id="call-video-section">
+    <video id="remote-video" autoplay playsinline webkit-playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
+    <div id="video-placeholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;z-index:5;transition:opacity 0.5s">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <p style="color:rgba(255,255,255,0.35);font-size:14px;margin-top:12px">Conectando vídeo...</p>
+    </div>
     <div class="call-top">
-      <span style="font-size:18px">📹</span>
+      <span style="font-size:16px">📹</span>
       <span class="call-top-label" id="call-top-label">En llamada</span>
       <span class="call-timer" id="call-timer">0:00</span>
     </div>
-    <div id="webrtc-debug" style="position:absolute;top:60px;left:8px;right:8px;background:rgba(0,0,0,.7);border-radius:8px;padding:8px;font-size:11px;color:#0f0;font-family:monospace;display:none;max-height:120px;overflow-y:auto;z-index:999"></div>
-    <div class="call-bottom">
-      <div class="call-btn-wrap">
-        <button class="call-btn mute" id="btn-mute" onclick="toggleMute()">
-          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
-        </button>
-      </div>
-      <button class="call-btn hangup" onclick="hangUp()">
-        <svg viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" transform="rotate(135 12 12)"/></svg>
-      </button>
-      <div class="call-btn-wrap" style="position:relative">
-        <button class="call-btn chat-toggle" onclick="toggleChat()">
-          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-        </button>
-        <div class="chat-badge" id="chat-badge">!</div>
-      </div>
-    </div>
   </div>
 
-  <div class="chat-panel" id="chat-panel">
-    <div class="chat-messages" id="chat-messages"></div>
-    <div class="chat-quick">
+  <!-- Mitad inferior: chat + botones -->
+  <div id="call-bottom-section">
+    <!-- Cabecera chat -->
+    <div class="chat-header-row">
+      <span class="chat-header-title">💬 CHAT</span>
+      <span class="chat-header-sub">SOLO VISIBLE DURANTE LA LLAMADA</span>
+    </div>
+    <!-- Respuestas rápidas -->
+    <div class="chat-quickreplies">
       <button class="quick-btn" onclick="sendChat('Ahora bajo')">Ahora bajo</button>
       <button class="quick-btn" onclick="sendChat('Deja el paquete en la puerta')">Deja en la puerta</button>
       <button class="quick-btn" onclick="sendChat('Deja en conserjería')">Conserjería</button>
       <button class="quick-btn" onclick="sendChat('Vuelve en 10 minutos')">10 minutos</button>
       <button class="quick-btn" onclick="sendChat('No esperaba visita')">No esperaba visita</button>
     </div>
-    <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
-      <button onclick="endCall()" style="width:40px;height:40px;border-radius:50%;background:var(--red);border:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" style="transform:rotate(135deg)"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-      </button>
-      <input id="chat-input-vecino" type="text" placeholder="Escribe un mensaje..." maxlength="200"
-        style="flex:1;padding:8px 12px;border-radius:20px;background:rgba(255,255,255,0.12);color:#fff;border:none;font-size:14px;outline:none"
+    <!-- Mensajes -->
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>
+    </div>
+    <!-- Input -->
+    <div class="chat-input-row">
+      <input id="chat-input-vecino" type="text" class="chat-input" placeholder="Escribe un mensaje..." maxlength="200"
         onkeydown="if(event.key==='Enter')sendChatInput()">
-      <button onclick="sendChatInput()" style="width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <button class="chat-send" onclick="sendChatInput()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+    <!-- Botones acción -->
+    <div class="call-action-row">
+      <button class="btn-mute-full" id="btn-mute" onclick="toggleMute()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+        Silenciar
+      </button>
+      <button class="btn-hangup-full" onclick="hangUp()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+        Colgar
       </button>
     </div>
   </div>
