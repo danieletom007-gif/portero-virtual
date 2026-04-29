@@ -156,10 +156,10 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <!-- ════════════ PANTALLA: INSTALL ════════════ -->
 <div class="screen" id="screen-install" style="justify-content:flex-start;padding-top:48px">
-  <div class="install-icon">
-    <svg viewBox="0 0 24 24" fill="white"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+  <div style="margin-bottom:24px">
+    <img src="/portero-virtual/icono.png" width="96" height="96" style="object-fit:contain">
   </div>
-  <p class="install-title">Instala tu portero</p>
+  <p class="install-title">Instala tu Portero Virtual</p>
   <p class="install-sub">Para recibir llamadas necesitas instalar esta app en tu móvil</p>
 
   <!-- Sección dinámica: se rellena por JS según el dispositivo -->
@@ -167,7 +167,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
   <!-- Botón instalar Android (visible si el navegador lo soporta) -->
   <button class="btn-primary" id="btn-install-android" style="display:none" onclick="doInstallAndroid()">
-    📲 Instalar app
+     INSTALAR APP
   </button>
 
   <!-- Siempre visible: botón para quien ya instaló o quiere continuar -->
