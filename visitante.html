@@ -591,7 +591,7 @@
           <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
         </svg>
       </div>
-      Audio → <span>bidireccional</span>
+      Audio → <span id="audio-status-label">activo</span>
     </div>
   </div>
 
@@ -966,6 +966,10 @@ function toggleMute() {
   muted = !muted;
   if (localStream) localStream.getAudioTracks().forEach(t => t.enabled = !muted);
   document.getElementById('btn-mute').classList.toggle('muted', muted);
+  // Actualizar texto de estado de audio
+  document.querySelectorAll('#audio-status-label').forEach(el => {
+    el.textContent = muted ? 'en silencio, usa el chat' : 'activo';
+  });
 }
 
 // ── Timer ─────────────────────────────────────────────────
@@ -1081,7 +1085,7 @@ loadPortal();
           <path d="M12 1a3 3 0 013 3v8a3 3 0 01-6 0V4a3 3 0 013-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
         </svg>
       </div>
-      Audio → <span>bidireccional</span>
+      Audio → <span id="audio-status-label">activo</span>
     </div>
   </div>
 
