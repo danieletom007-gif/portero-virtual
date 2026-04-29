@@ -15,11 +15,12 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#0c0c0e;--bg2:#141416;--bg3:#1c1c1f;--bg4:#242428;
-  --text:#f0f0f0;--text2:#a0a0a8;--text3:#606068;
-  --accent:#4f8ef7;--accent2:#3a7ce8;
-  --green:#3ecf8e;--red:#f55;--orange:#f90;
+  --bg:#f0f6ff;--bg2:#e8f0fb;--bg3:#dde8f7;--bg4:#c8daf0;
+  --text:#1a3a5c;--text2:#378ADD;--text3:#85B7EB;
+  --accent:#378ADD;--accent2:#1a3a5c;
+  --green:#22c55e;--red:#E24B4A;--orange:#f97316;
   --radius:14px;--radius-sm:8px;
+  --blue-dark:#1a3a5c;--blue-mid:#2563a8;--blue-light:#B5D4F4;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
@@ -37,7 +38,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ios-hint{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px}
 .btn-primary{width:100%;max-width:340px;padding:16px;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s}
 .btn-primary:active{opacity:.8}
-.btn-secondary{width:100%;max-width:340px;padding:14px;border-radius:var(--radius);background:var(--bg3);color:var(--text);font-size:15px;font-weight:500;border:1px solid var(--bg4);cursor:pointer;transition:opacity .15s;margin-top:10px}
+.btn-secondary{width:100%;max-width:340px;padding:14px;border-radius:var(--radius);background:#fff;color:var(--blue-dark);font-size:15px;font-weight:500;border:1.5px solid var(--blue-light);cursor:pointer;transition:opacity .15s;margin-top:10px}
 .btn-secondary:active{opacity:.7}
 /* ---- SETUP ---- */
 #screen-setup{background:var(--bg)}
@@ -58,14 +59,20 @@ select:focus{outline:none;border-color:var(--accent)}
 #screen-success{background:var(--bg)}
 .success-icon{width:80px;height:80px;border-radius:50%;background:rgba(62,207,142,.15);display:flex;align-items:center;justify-content:center;margin-bottom:24px;font-size:36px}
 /* ---- STANDBY ---- */
-#screen-standby{background:var(--bg)}
+#screen-standby{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
+.standby-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 20px 28px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.standby-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.standby-header .standby-label{color:#fff!important;font-size:18px;font-weight:700}
+.standby-header .standby-sub{color:rgba(255,255,255,.75)!important}
+.standby-connected-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:5px 12px;color:#fff;font-size:12px;margin-top:10px}
+.standby-body{flex:1;overflow-y:auto;padding:16px}
 .standby-top{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;margin-bottom:32px}
 .standby-avatar{width:80px;height:80px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;position:relative}
 .standby-dot{position:absolute;bottom:4px;right:4px;width:14px;height:14px;border-radius:50%;background:var(--green);border:2px solid var(--bg)}
 .standby-label{font-size:18px;font-weight:600;margin-bottom:4px}
 .standby-sub{font-size:13px;color:var(--text2)}
 .standby-actions{width:100%;max-width:360px}
-.standby-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--bg3)}
+.standby-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--blue-light)}
 .standby-row:last-child{border:none}
 .standby-row-label{font-size:14px;color:var(--text2)}
 .standby-row-val{font-size:14px;font-weight:500}
@@ -80,7 +87,12 @@ select:focus{outline:none;border-color:var(--accent)}
 .time-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
 input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius:6px;color:var(--text);padding:6px 8px;font-size:13px;width:110px}
 /* ---- INCOMING ---- */
-#screen-incoming{background:var(--bg)}
+#screen-incoming{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
+.incoming-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 20px 28px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.incoming-header-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.incoming-header-name{color:#fff;font-size:17px;font-weight:700;margin-bottom:4px}
+.incoming-header-sub{color:rgba(255,255,255,.75);font-size:13px}
+.incoming-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;padding:32px 20px}
 .incoming-ring{width:110px;height:110px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;position:relative;font-size:44px}
 .incoming-ring::before,
 .incoming-ring::after{content:'';position:absolute;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring 2s ease-out infinite}
@@ -103,29 +115,29 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .call-top-label{font-size:13px;font-weight:500;color:#fff}
 .call-timer{font-size:12px;color:rgba(255,255,255,.7);margin-left:auto}
 /* Mitad inferior: chat + botones */
-#call-bottom-section{flex:1;display:flex;flex-direction:column;background:#1e1e24;overflow:hidden;border-top:1px solid rgba(255,255,255,.13)}
+#call-bottom-section{flex:1;display:flex;flex-direction:column;background:#f0f6ff;overflow:hidden;border-top:1px solid var(--blue-light)}
 /* Chat — mismo estilo que visitante */
 /* Chat — colores idénticos a visitante.html */
-.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.13);font-size:12px;font-weight:600;color:#7a7a8a;text-transform:uppercase;letter-spacing:.07em}
-.chat-header-title{font-size:12px;font-weight:600;color:#7a7a8a;letter-spacing:.07em;text-transform:uppercase}
-.chat-header-sub{font-size:10px;color:#7a7a8a}
-.chat-quickreplies{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px 8px;border-bottom:1px solid rgba(255,255,255,.13)}
-.quick-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:#16161a;border:1px solid rgba(255,255,255,.13);color:#7a7a8a;cursor:pointer;white-space:nowrap;transition:all .15s}
-.quick-btn:active{background:rgba(99,102,241,.15);border-color:#6366f1;color:#6366f1}
+.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--blue-light);font-size:12px;font-weight:600;color:var(--blue-dark);text-transform:uppercase;letter-spacing:.07em}
+.chat-header-title{font-size:12px;font-weight:600;color:var(--blue-dark);letter-spacing:.07em;text-transform:uppercase}
+.chat-header-sub{font-size:10px;color:var(--text2)}
+.chat-quickreplies{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px 8px;border-bottom:1px solid var(--blue-light)}
+.quick-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:#fff;border:1px solid var(--blue-light);color:var(--blue-dark);cursor:pointer;white-space:nowrap;transition:all .15s}
+.quick-btn:active{background:var(--blue-light);border-color:var(--accent);color:var(--blue-dark)}
 .chat-messages{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
-.chat-empty{text-align:center;color:#7a7a8a;font-size:12px;padding:20px 0}
+.chat-empty{text-align:center;color:var(--text2);font-size:12px;padding:20px 0}
 .chat-msg{max-width:85%;padding:7px 11px;border-radius:12px;font-size:13px;line-height:1.4;word-break:break-word}
 .chat-msg.sent{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-.chat-msg.recv{background:#16161a;color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid rgba(255,255,255,.13)}
-.chat-input-row{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.13)}
-.chat-input{flex:1;padding:8px 12px;background:#16161a;border:1px solid rgba(255,255,255,.13);border-radius:20px;font-size:13px;color:var(--text);outline:none}
+.chat-msg.recv{background:#fff;color:var(--blue-dark);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--blue-light)}
+.chat-input-row{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid var(--blue-light)}
+.chat-input{flex:1;padding:8px 12px;background:#fff;border:1px solid var(--blue-light);border-radius:20px;font-size:13px;color:var(--blue-dark);outline:none}
 .chat-input:focus{border-color:var(--accent)}
 .chat-send{width:34px;height:34px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
 .chat-send:active{transform:scale(.92)}
 /* Botones acción debajo del chat */
 .call-action-row{display:flex;gap:10px;padding:8px 12px 12px}
 .call-action-row button{flex:1;padding:14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-mute-full{background:var(--bg3);color:var(--text)}
+.btn-mute-full{background:#fff;color:var(--blue-dark);border:1.5px solid var(--blue-light)}
 .btn-mute-full.active{background:var(--orange);color:#fff}
 .btn-hangup-full{background:var(--red);color:#fff}
 .quick-btn:active{opacity:.7}
@@ -166,6 +178,9 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <!-- ════════════ PANTALLA: SETUP ════════════ -->
 <div class="screen" id="screen-setup" style="display:none">
+  <div style="text-align:center;margin-bottom:8px">
+    <img src="/portero-virtual/icono.png" width="64" height="64" style="object-fit:contain">
+  </div>
   <div class="setup-header">
     <p class="setup-title">Configura tu portero</p>
     <p class="setup-sub">Selecciona tu portal y tu vivienda para empezar a recibir llamadas</p>
@@ -213,15 +228,17 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <!-- ════════════ PANTALLA: STANDBY ════════════ -->
 <div class="screen" id="screen-standby" style="display:none">
-  <div class="standby-top">
-    <div class="standby-avatar">
-      🏠
-      <div class="standby-dot"></div>
+  <!-- Cabecera azul con logo -->
+  <div class="standby-header">
+    <div class="standby-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
     </div>
     <div class="standby-label" id="standby-label">Mi portero</div>
     <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
+    <span class="standby-connected-badge"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>Conectado</span>
   </div>
 
+  <div class="standby-body">
   <div class="standby-actions">
     <div class="standby-row">
       <span class="standby-row-label">Portal</span>
@@ -263,20 +280,32 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
   <button class="btn-secondary" style="margin-top:24px;max-width:360px" onclick="showAllScreens('screen-setup')">
     Cambiar configuración
   </button>
+  </div>
 </div>
 
 <!-- ════════════ PANTALLA: INCOMING ════════════ -->
 <div class="screen" id="screen-incoming" style="display:none">
-  <div class="incoming-ring">📞</div>
-  <p class="incoming-label">Visita en el portal</p>
-  <p class="incoming-sub" id="incoming-sub">Alguien está llamando</p>
-  <div class="incoming-actions">
-    <button class="btn-reject" onclick="rejectCall()">
-      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-    </button>
-    <button class="btn-answer" onclick="answerCall()">
-      <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-    </button>
+  <!-- Cabecera azul con logo -->
+  <div class="incoming-header">
+    <div class="incoming-header-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
+    </div>
+    <div class="incoming-header-name" id="incoming-portal-name">Mi portero</div>
+    <div class="incoming-header-sub">Visita en el portal</div>
+  </div>
+  <!-- Cuerpo blanco con animación y botones -->
+  <div class="incoming-body">
+    <div class="incoming-ring">📞</div>
+    <p class="incoming-label" style="color:var(--blue-dark)">Llamada entrante</p>
+    <p class="incoming-sub" id="incoming-sub" style="color:var(--text2)">Alguien está llamando</p>
+    <div class="incoming-actions">
+      <button class="btn-reject" onclick="rejectCall()">
+        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+      </button>
+      <button class="btn-answer" onclick="answerCall()">
+        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -557,6 +586,8 @@ async function loadPortalInfo() {
     const nameEl = document.getElementById('pi-name');
     const addrEl = document.getElementById('pi-addr');
     if (nameEl) nameEl.textContent = data.name || 'Portal';
+    const incPortalName = document.getElementById('incoming-portal-name');
+    if (incPortalName) incPortalName.textContent = data.name || 'Mi portero';
     if (addrEl) addrEl.textContent = [data.address, data.city].filter(Boolean).join(', ');
 
     // Rellenar selector de viviendas
