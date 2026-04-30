@@ -635,7 +635,18 @@
 <div id="screen-noanswer">
   <div class="noanswer-icon">🔕</div>
   <div class="noanswer-title">Sin respuesta</div>
-  <div class="noanswer-sub">El vecino ha recibido la notificación<br>pero no ha contestado.</div>
+  <div class="noanswer-sub">El vecino no ha contestado.<br>Puedes dejar un mensaje.</div>
+  <div id="visitor-msg-box" style="width:100%;max-width:380px;margin:0 auto 16px">
+    <textarea id="visitor-msg-input" maxlength="200" placeholder="Ej: He dejado el paquete en la puerta / Llámame al 666 123 456"
+      style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;line-height:1.4;resize:none;height:90px;font-family:inherit;box-sizing:border-box"></textarea>
+    <button id="btn-send-msg" onclick="sendVisitorMessage()"
+      style="width:100%;margin-top:8px;padding:13px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-size:15px;font-weight:600;cursor:pointer">
+      📨 Enviar mensaje al vecino
+    </button>
+    <div id="msg-sent-ok" style="display:none;text-align:center;color:var(--green);font-size:14px;margin-top:8px;font-weight:500">
+      ✅ Mensaje enviado correctamente
+    </div>
+  </div>
   <button class="btn-retry" onclick="goHome()">↩ Volver a intentarlo</button>
   <button class="btn-hangup" onclick="goHome()">Cancelar</button>
 </div>
@@ -966,6 +977,22 @@ function hangup(notify = true) {
 
 function goHome() { show('screen-form'); }
 
+// ── Mensaje del visitante al vecino ───────────────────────────────────────────
+function sendVisitorMessage() {
+  const input = document.getElementById('visitor-msg-input');
+  const msg   = input ? input.value.trim() : '';
+  if (!msg) { alert('Escribe un mensaje antes de enviar'); return; }
+  const btn = document.getElementById('btn-send-msg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'visitor-message', room: callRoom, message: msg }));
+  }
+  const ok = document.getElementById('msg-sent-ok');
+  if (ok) ok.style.display = 'block';
+  if (btn) btn.style.display = 'none';
+  if (input) input.disabled = true;
+}
+
 // ── Mute ──────────────────────────────────────────────────
 function toggleMute() {
   muted = !muted;
@@ -1134,7 +1161,18 @@ loadPortal();
 <div id="screen-noanswer">
   <div class="noanswer-icon">🔕</div>
   <div class="noanswer-title">Sin respuesta</div>
-  <div class="noanswer-sub">El vecino ha recibido la notificación<br>pero no ha contestado.</div>
+  <div class="noanswer-sub">El vecino no ha contestado.<br>Puedes dejar un mensaje.</div>
+  <div id="visitor-msg-box" style="width:100%;max-width:380px;margin:0 auto 16px">
+    <textarea id="visitor-msg-input" maxlength="200" placeholder="Ej: He dejado el paquete en la puerta / Llámame al 666 123 456"
+      style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;line-height:1.4;resize:none;height:90px;font-family:inherit;box-sizing:border-box"></textarea>
+    <button id="btn-send-msg" onclick="sendVisitorMessage()"
+      style="width:100%;margin-top:8px;padding:13px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-size:15px;font-weight:600;cursor:pointer">
+      📨 Enviar mensaje al vecino
+    </button>
+    <div id="msg-sent-ok" style="display:none;text-align:center;color:var(--green);font-size:14px;margin-top:8px;font-weight:500">
+      ✅ Mensaje enviado correctamente
+    </div>
+  </div>
   <button class="btn-retry" onclick="goHome()">↩ Volver a intentarlo</button>
   <button class="btn-hangup" onclick="goHome()">Cancelar</button>
 </div>
