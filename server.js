@@ -636,6 +636,7 @@ wss.on('connection', (ws) => {
       case 'busy':
       case 'hangup':
       case 'mute':
+      case 'visitor-message':
         broadcast(ws.room, data, ws);
         break;
 
