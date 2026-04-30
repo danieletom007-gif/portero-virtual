@@ -23,43 +23,6 @@
   --blue-dark:#1a3a5c;--blue-mid:#2563a8;--blue-light:#B5D4F4;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
-
-/* ── Barra navegación ── */
-#nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:1px solid var(--blue-light);display:none;z-index:500;display:flex}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;padding:8px 0;position:relative}
-.nav-btn svg{width:24px;height:24px;stroke:#B5D4F4;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.nav-btn.active svg{stroke:var(--blue-dark)}
-.nav-dot{position:absolute;top:6px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:#E24B4A;display:none}
-.nav-dot.show{display:block}
-
-/* ── Pantalla Llamadas ── */
-#screen-llamadas{background:var(--bg);display:none;flex-direction:column;position:fixed;inset:0;z-index:100;padding-bottom:64px}
-#screen-llamadas .sec-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 20px;color:#fff}
-#screen-llamadas .sec-title{font-size:20px;font-weight:700}
-.llamadas-list{flex:1;overflow-y:auto;padding:12px 16px}
-.llamada-card{background:#fff;border-radius:12px;border:1px solid var(--blue-light);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px}
-.llamada-icono{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
-.llamada-icono.contestada{background:#EAF3DE}
-.llamada-icono.perdida{background:#FCEBEB}
-.llamada-info{flex:1}
-.llamada-estado{font-size:13px;font-weight:600;color:var(--blue-dark);margin-bottom:2px}
-.llamada-fecha{font-size:11px;color:var(--text2);margin-bottom:4px}
-.llamada-msg{font-size:12px;color:var(--text2);background:var(--bg);border-radius:8px;padding:6px 10px;margin-top:6px;border-left:3px solid var(--blue-light)}
-.sec-empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px}
-
-/* ── Pantalla Comunidad ── */
-#screen-comunidad{background:var(--bg);display:none;flex-direction:column;position:fixed;inset:0;z-index:100;padding-bottom:64px}
-#screen-comunidad .sec-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 20px;color:#fff}
-#screen-comunidad .sec-title{font-size:20px;font-weight:700}
-.avisos-list{flex:1;overflow-y:auto;padding:12px 16px}
-.aviso-card{background:#fff;border-radius:12px;border:1px solid var(--blue-light);padding:14px 16px;margin-bottom:10px}
-.aviso-titulo{font-size:14px;font-weight:600;color:var(--blue-dark);margin-bottom:4px}
-.aviso-cuerpo{font-size:13px;color:var(--text2);line-height:1.4;margin-bottom:6px}
-.aviso-fecha{font-size:11px;color:var(--text3)}
-.aviso-new{width:8px;height:8px;border-radius:50%;background:#E24B4A;display:inline-block;margin-left:6px;vertical-align:middle}
-
-/* standby con espacio para nav */
-#screen-standby{padding-bottom:64px!important}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
 /* ---- INSTALL ---- */
 #screen-install{background:var(--bg)}
@@ -725,8 +688,6 @@ function goToStandby() {
   showAllScreens('screen-standby');
   updateStandbyUI();
   connectWS();
-  document.getElementById('nav-bar').style.display = 'flex';
-  navTo('inicio');
 }
 
 function updateStandbyUI() {
@@ -855,7 +816,6 @@ async function handleWsMessage(data) {
       const sub = document.getElementById('incoming-sub');
       if (sub) sub.textContent = `Visita para ${myLabel}`;
       playRingTone();
-      saveLlamada(data);
       break;
     }
 
@@ -882,11 +842,6 @@ async function handleWsMessage(data) {
     }
     case 'visitor-message': {
       saveMensajeVisitante(data.message);
-      const toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;top:16px;left:16px;right:16px;background:#1a3a5c;color:#fff;padding:14px 16px;border-radius:12px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
-      toast.innerHTML = '💬 Mensaje del visitante: <strong>' + data.message + '</strong>';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 5000);
       // Mostrar toast si la app está en standby
       const toast = document.createElement('div');
       toast.style.cssText = 'position:fixed;top:16px;left:16px;right:16px;background:#1a3a5c;color:#fff;padding:14px 16px;border-radius:12px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
@@ -921,7 +876,6 @@ function playRingTone() {
 }
 
 function answerCall() {
-  markLlamadaContestada();
   send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
   showAllScreens('screen-call');
   startCallTimer();
@@ -1189,161 +1143,5 @@ if (urlContest) {
   }
 }
 </script>
-
-<!-- ── Nav bar ── -->
-<div id="nav-bar" style="display:none">
-  <button class="nav-btn active" id="nav-inicio" onclick="navTo('inicio')">
-    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-  </button>
-  <button class="nav-btn" id="nav-llamadas" onclick="navTo('llamadas')">
-    <div class="nav-dot" id="dot-llamadas"></div>
-    <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.9v2z"/></svg>
-  </button>
-  <button class="nav-btn" id="nav-comunidad" onclick="navTo('comunidad')">
-    <div class="nav-dot" id="dot-comunidad"></div>
-    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-  </button>
-</div>
-
-<!-- ── Pantalla Llamadas ── -->
-<div id="screen-llamadas">
-  <div class="sec-header">
-    <img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block">
-    <div class="sec-title">Llamadas</div>
-  </div>
-  <div class="llamadas-list" id="llamadas-list">
-    <div class="sec-empty">No hay llamadas registradas</div>
-  </div>
-</div>
-
-<!-- ── Pantalla Comunidad ── -->
-<div id="screen-comunidad">
-  <div class="sec-header">
-    <img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block">
-    <div class="sec-title">Mensajes de la comunidad</div>
-  </div>
-  <div class="avisos-list" id="avisos-list">
-    <div class="sec-empty">No hay mensajes de la comunidad</div>
-  </div>
-</div>
-
-<script>
-// ── Navegación ────────────────────────────────────────────
-function navTo(tab) {
-  document.getElementById('screen-llamadas').style.display = 'none';
-  document.getElementById('screen-comunidad').style.display = 'none';
-  ['inicio','llamadas','comunidad'].forEach(t => {
-    document.getElementById('nav-' + t).classList.toggle('active', t === tab);
-  });
-  if (tab === 'inicio') {
-    showAllScreens('screen-standby');
-  } else if (tab === 'llamadas') {
-    showAllScreens('screen-standby');
-    document.getElementById('screen-llamadas').style.display = 'flex';
-    renderLlamadas();
-    localStorage.setItem('llamadas-unread', '0');
-    document.getElementById('dot-llamadas').classList.remove('show');
-  } else if (tab === 'comunidad') {
-    showAllScreens('screen-standby');
-    document.getElementById('screen-comunidad').style.display = 'flex';
-    renderComunidad();
-    localStorage.setItem('comunidad-unread', '0');
-    document.getElementById('dot-comunidad').classList.remove('show');
-  }
-}
-
-// ── Historial llamadas ────────────────────────────────────
-function saveLlamada(data) {
-  const list = JSON.parse(localStorage.getItem('historial-llamadas') || '[]');
-  list.unshift({ fecha: new Date().toISOString(), contestada: false, mensaje: null });
-  localStorage.setItem('historial-llamadas', JSON.stringify(list.slice(0,50)));
-  const u = parseInt(localStorage.getItem('llamadas-unread') || '0') + 1;
-  localStorage.setItem('llamadas-unread', u);
-  const dot = document.getElementById('dot-llamadas');
-  if (dot) dot.classList.add('show');
-}
-function markLlamadaContestada() {
-  const list = JSON.parse(localStorage.getItem('historial-llamadas') || '[]');
-  if (list.length > 0) { list[0].contestada = true; localStorage.setItem('historial-llamadas', JSON.stringify(list)); }
-}
-function saveMensajeVisitante(msg) {
-  const list = JSON.parse(localStorage.getItem('historial-llamadas') || '[]');
-  if (list.length > 0) { list[0].mensaje = msg; localStorage.setItem('historial-llamadas', JSON.stringify(list)); }
-  const u = parseInt(localStorage.getItem('llamadas-unread') || '0') + 1;
-  localStorage.setItem('llamadas-unread', u);
-  const dot = document.getElementById('dot-llamadas');
-  if (dot) dot.classList.add('show');
-}
-function renderLlamadas() {
-  const el = document.getElementById('llamadas-list');
-  const list = JSON.parse(localStorage.getItem('historial-llamadas') || '[]');
-  if (!list.length) { el.innerHTML = '<div class="sec-empty">No hay llamadas registradas</div>'; return; }
-  el.innerHTML = list.map(l => {
-    const d = new Date(l.fecha);
-    const hoy = new Date().toDateString() === d.toDateString();
-    const f = hoy ? 'Hoy ' + d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('es',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
-    const msgHtml = l.mensaje ? `<div class="llamada-msg">💬 "${l.mensaje}"</div>` : '';
-    return `<div class="llamada-card">
-      <div class="llamada-icono ${l.contestada?'contestada':'perdida'}">${l.contestada?'✅':'📵'}</div>
-      <div class="llamada-info">
-        <div class="llamada-estado">${l.contestada?'Contestada':'Llamada perdida'}</div>
-        <div class="llamada-fecha">${f}</div>
-        ${msgHtml}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ── Avisos comunidad ──────────────────────────────────────
-function saveAviso(data) {
-  const list = JSON.parse(localStorage.getItem('avisos-comunidad') || '[]');
-  list.unshift({ fecha: new Date().toISOString(), title: data.title||'Aviso', body: data.body||'', leido: false });
-  localStorage.setItem('avisos-comunidad', JSON.stringify(list.slice(0,100)));
-  const u = parseInt(localStorage.getItem('comunidad-unread') || '0') + 1;
-  localStorage.setItem('comunidad-unread', u);
-  const dot = document.getElementById('dot-comunidad');
-  if (dot) dot.classList.add('show');
-}
-function renderComunidad() {
-  const el = document.getElementById('avisos-list');
-  const list = JSON.parse(localStorage.getItem('avisos-comunidad') || '[]');
-  if (!list.length) { el.innerHTML = '<div class="sec-empty">No hay mensajes de la comunidad</div>'; return; }
-  el.innerHTML = list.map(a => {
-    const d = new Date(a.fecha);
-    const hoy = new Date().toDateString() === d.toDateString();
-    const f = hoy ? 'Hoy ' + d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'});
-    return `<div class="aviso-card">
-      <div class="aviso-titulo">${a.title}${!a.leido?'<span class="aviso-new"></span>':''}</div>
-      <div class="aviso-cuerpo">${a.body}</div>
-      <div class="aviso-fecha">${f}</div>
-    </div>`;
-  }).join('');
-  list.forEach(a => a.leido = true);
-  localStorage.setItem('avisos-comunidad', JSON.stringify(list));
-}
-
-// ── Init puntos rojos al arrancar ─────────────────────────
-(function(){
-  if (parseInt(localStorage.getItem('llamadas-unread')||'0') > 0) {
-    const d = document.getElementById('dot-llamadas');
-    if (d) d.classList.add('show');
-  }
-  if (parseInt(localStorage.getItem('comunidad-unread')||'0') > 0) {
-    const d = document.getElementById('dot-comunidad');
-    if (d) d.classList.add('show');
-  }
-  // Abrir tab comunidad si viene de notificación
-  if (new URLSearchParams(location.search).get('tab') === 'comunidad') {
-    setTimeout(() => navTo('comunidad'), 800);
-  }
-  // Escuchar avisos del SW
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data && e.data.type === 'notice') saveAviso(e.data);
-    });
-  }
-})();
-</script>
-
 </body>
 </html>
