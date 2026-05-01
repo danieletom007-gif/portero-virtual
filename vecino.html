@@ -449,8 +449,13 @@ function initApp() {
   // PRIORIDAD 2: app ya configurada (instalada con config guardada)
   if (isInstalledApp() || (myRoom && myPortalId)) {
     if (myRoom && myPortalId) {
-      loadPortalInfo();
-      goToStandby();
+  showAllScreens('screen-standby');
+  updateStandbyUI();
+  loadPortalInfo();
+  connectWS();
+  // Mostrar menú inferior
+  setTimeout(function(){ const n=document.getElementById('nav-bar'); if(n)n.style.display='flex'; }, 100);
+
     } else if (urlPortal || urlFloorId) {
       showAllScreens('screen-setup');
       loadPortalInfo();
