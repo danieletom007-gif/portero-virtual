@@ -651,7 +651,7 @@ wss.on('connection', (ws) => {
               webpush.sendNotification(sub, JSON.stringify({
                 title: '💬 Mensaje del visitante',
                 body: data.message,
-                url: 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&tab=llamadas'
+                url: 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&tab=llamadas&msg=' + encodeURIComponent(data.message)
               })).catch(e => console.warn('push visitor-message:', e.message));
             })
             .catch(e => console.warn('push visitor-message query:', e.message));
