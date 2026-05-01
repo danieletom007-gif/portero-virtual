@@ -1220,6 +1220,11 @@ function renderComunidad(){const el=document.getElementById('avisos-list'),list=
   if(parseInt(localStorage.getItem('llamadas-unread')||'0')>0){const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
   if(parseInt(localStorage.getItem('comunidad-unread')||'0')>0){const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
   if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='notice')saveAviso(e.data);});
+  // Leer ?msg= y ?tab= de la URL (mensaje del visitante llegado por push)
+  const _urlP=new URLSearchParams(location.search);
+  const _msg=_urlP.get('msg');
+  if(_msg){saveMensajeVisitante(decodeURIComponent(_msg));}
+  if(_urlP.get('tab')==='llamadas'){setTimeout(()=>navTo('llamadas'),800);}
   // Mostrar nav si la app arranca en standby (initApp no pasa por goToStandby)
   setTimeout(function(){
     const standby=document.getElementById('screen-standby');
