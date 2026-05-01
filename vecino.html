@@ -449,11 +449,8 @@ function initApp() {
   // PRIORIDAD 2: app ya configurada (instalada con config guardada)
   if (isInstalledApp() || (myRoom && myPortalId)) {
     if (myRoom && myPortalId) {
-  showAllScreens('screen-standby');
-  updateStandbyUI();
-  loadPortalInfo();
-  connectWS();
-
+      loadPortalInfo();
+      goToStandby();
     } else if (urlPortal || urlFloorId) {
       showAllScreens('screen-setup');
       loadPortalInfo();
@@ -846,6 +843,7 @@ async function handleWsMessage(data) {
       const sub = document.getElementById('incoming-sub');
       if (sub) sub.textContent = `Visita para ${myLabel}`;
       playRingTone();
+      saveLlamada(data);
       break;
     }
 
@@ -906,6 +904,7 @@ function playRingTone() {
 }
 
 function answerCall() {
+  markLlamadaContestada();
   send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
   showAllScreens('screen-call');
   startCallTimer();
@@ -1216,6 +1215,12 @@ function renderComunidad(){const el=document.getElementById('avisos-list'),list=
   if(parseInt(localStorage.getItem('llamadas-unread')||'0')>0){const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
   if(parseInt(localStorage.getItem('comunidad-unread')||'0')>0){const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
   if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='notice')saveAviso(e.data);});
+  // Mostrar nav si la app arranca en standby (initApp no pasa por goToStandby)
+  setTimeout(function(){
+    const standby=document.getElementById('screen-standby');
+    const nav=document.getElementById('nav-bar');
+    if(nav && standby && standby.style.display!=='none'){nav.style.display='flex';}
+  },50);
 })();
 </script>
 
