@@ -294,7 +294,7 @@ app.get('/api/portal/:portalId/public', async (req, res) => {
 app.get('/api/portals/:id/floors', authMiddleware, async (req, res) => {
   try {
     const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
+      'SELECT id FROM portals WHERE id=$1 AND (user_id=$2 OR client_id=$2::text)',
       [req.params.id, req.user.id]
     );
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
@@ -316,7 +316,7 @@ app.post('/api/portals/:id/floors', authMiddleware, async (req, res) => {
   if (!unit_label) return res.status(400).json({ error: 'unit_label requerido' });
   try {
     const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
+      'SELECT id FROM portals WHERE id=$1 AND (user_id=$2 OR client_id=$2::text)',
       [req.params.id, req.user.id]
     );
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
@@ -439,7 +439,7 @@ app.post('/api/portals/:id/notify', authMiddleware, async (req, res) => {
   const { title, body, type, floorIds } = req.body;
   try {
     const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
+      'SELECT id FROM portals WHERE id=$1 AND (user_id=$2 OR client_id=$2::text)',
       [req.params.id, req.user.id]
     );
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
@@ -481,7 +481,7 @@ app.post('/api/portals/:id/notify', authMiddleware, async (req, res) => {
 app.get('/api/portals/:id/notices', authMiddleware, async (req, res) => {
   try {
     const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
+      'SELECT id FROM portals WHERE id=$1 AND (user_id=$2 OR client_id=$2::text)',
       [req.params.id, req.user.id]
     );
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
@@ -497,7 +497,7 @@ app.get('/api/portals/:id/notices', authMiddleware, async (req, res) => {
 app.get('/api/portals/:id/stats', authMiddleware, async (req, res) => {
   try {
     const pr = await pool.query(
-      'SELECT id FROM portals WHERE id=$1 AND user_id=$2',
+      'SELECT id FROM portals WHERE id=$1 AND (user_id=$2 OR client_id=$2::text)',
       [req.params.id, req.user.id]
     );
     if (!pr.rows[0]) return res.status(404).json({ error: 'Portal no encontrado' });
