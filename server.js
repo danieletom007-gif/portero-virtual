@@ -636,27 +636,8 @@ wss.on('connection', (ws) => {
       case 'busy':
       case 'hangup':
       case 'mute':
-        broadcast(ws.room, data, ws);
-        break;
-
       case 'visitor-message':
         broadcast(ws.room, data, ws);
-        // Enviar push al vecino si no está conectado o para asegurar entrega
-        if (data.message && ws.floorId) {
-          pool.query('SELECT push_subscription FROM floors WHERE id=$1', [ws.floorId])
-            .then(r => {
-              if (!r.rows[0] || !r.rows[0].push_subscription) return;
-              const sub = typeof r.rows[0].push_subscription === 'string'
-                ? JSON.parse(r.rows[0].push_subscription)
-                : r.rows[0].push_subscription;
-              return webpush.sendNotification(sub, JSON.stringify({
-                title: '💬 Mensaje del visitante',
-                body: data.message,
-                url: 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&tab=llamadas'
-              }));
-            })
-            .catch(e => console.warn('push visitor-message:', e.message));
-        }
         break;
 
       case 'chat':
