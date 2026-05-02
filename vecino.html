@@ -1,5 +1,1220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="version" content="2.1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0c0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Portero">
+<link rel="manifest" href="/portero-virtual/manifest.json">
+<link rel="apple-touch-icon" href="/portero-virtual/icon-192.png">
+<title>Portero Virtual — Vecino</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f0f6ff;--bg2:#e8f0fb;--bg3:#dde8f7;--bg4:#c8daf0;
+  --text:#1a3a5c;--text2:#378ADD;--text3:#85B7EB;
+  --accent:#378ADD;--accent2:#1a3a5c;
+  --green:#22c55e;--red:#E24B4A;--orange:#f97316;
+  --radius:14px;--radius-sm:8px;
+  --blue-dark:#1a3a5c;--blue-mid:#2563a8;--blue-light:#B5D4F4;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+/* ---- INSTALL ---- */
+#screen-install{background:var(--bg)}
+.install-icon{width:96px;height:96px;border-radius:22px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+.install-icon svg{width:52px;height:52px;fill:#fff}
+.install-title{font-size:26px;font-weight:700;margin-bottom:8px;text-align:center}
+.install-sub{font-size:15px;color:var(--text2);text-align:center;margin-bottom:32px;line-height:1.5}
+.install-steps{width:100%;max-width:340px;margin-bottom:32px}
+.install-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.install-step-num{min-width:28px;height:28px;border-radius:50%;background:var(--bg3);border:1px solid var(--bg4);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--accent)}
+.install-step-text{font-size:14px;color:var(--text2);padding-top:4px;line-height:1.4}
+#install-ios-section,#install-android-section{display:none;width:100%;max-width:340px}
+.ios-hint{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px}
+.btn-primary{width:100%;max-width:340px;padding:16px;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s}
+.btn-primary:active{opacity:.8}
+.btn-secondary{width:100%;max-width:340px;padding:14px;border-radius:var(--radius);background:#fff;color:var(--blue-dark);font-size:15px;font-weight:500;border:1.5px solid var(--blue-light);cursor:pointer;transition:opacity .15s;margin-top:10px}
+.btn-secondary:active{opacity:.7}
+/* ---- SETUP ---- */
+#screen-setup{background:#fff;padding:32px 24px}
+.setup-header{width:100%;max-width:380px;margin-bottom:28px}
+.setup-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.setup-sub{font-size:14px;color:var(--text2);line-height:1.4}
+.portal-info-box{width:100%;max-width:380px;background:var(--bg3);border-radius:var(--radius);padding:16px;margin-bottom:20px;min-height:60px}
+.portal-name{font-size:17px;font-weight:600;margin-bottom:3px}
+.portal-addr{font-size:13px;color:var(--text2)}
+.field-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.select-wrap{width:100%;max-width:380px;margin-bottom:20px}
+select{width:100%;padding:14px 16px;border-radius:var(--radius-sm);background:var(--bg3);color:var(--text);font-size:16px;border:1px solid var(--bg4);appearance:none;-webkit-appearance:none}
+select:focus{outline:none;border-color:var(--accent)}
+/* ---- CONFIRM ---- */
+#screen-confirm{background:var(--bg)}
+.confirm-icon{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:32px}
+/* ---- SUCCESS ---- */
+#screen-success{background:var(--bg)}
+.success-icon{width:80px;height:80px;border-radius:50%;background:rgba(62,207,142,.15);display:flex;align-items:center;justify-content:center;margin-bottom:24px;font-size:36px}
+/* ---- STANDBY ---- */
+#screen-standby{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
+.standby-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
+.standby-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.standby-header .standby-label{color:#fff!important;font-size:18px;font-weight:700}
+.standby-header .standby-sub{color:rgba(255,255,255,.75)!important}
+.standby-connected-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:5px 12px;color:#fff;font-size:12px;margin-top:10px}
+.standby-body{flex:1;overflow-y:auto;padding:20px 8px}
+.standby-top{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;margin-bottom:32px}
+.standby-avatar{width:80px;height:80px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;position:relative}
+.standby-dot{position:absolute;bottom:4px;right:4px;width:14px;height:14px;border-radius:50%;background:var(--green);border:2px solid var(--bg)}
+.standby-label{font-size:18px;font-weight:600;margin-bottom:4px}
+.standby-sub{font-size:13px;color:var(--text2)}
+.standby-actions{width:100%}
+.standby-row{display:flex;align-items:center;justify-content:space-between;padding:36px 0;border-bottom:1px solid var(--blue-light)}
+.standby-row:last-child{border:none}
+.standby-row-label{font-size:16px;color:var(--text2)}
+.standby-row-val{font-size:16px;font-weight:500}
+.toggle{position:relative;width:48px;height:28px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--bg4);border-radius:14px;transition:.25s}
+.slider:before{content:'';position:absolute;height:22px;width:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s}
+.toggle input:checked+.slider{background:var(--accent)}
+.toggle input:checked+.slider:before{transform:translateX(20px)}
+.quiet-times{display:none;background:var(--bg3);border-radius:var(--radius-sm);padding:14px;margin-top:8px;gap:10px;flex-direction:column;width:100%}
+.quiet-times.visible{display:flex}
+.time-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius:6px;color:var(--text);padding:6px 8px;font-size:13px;width:110px}
+/* ---- INCOMING ---- */
+#screen-incoming{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
+.incoming-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
+.incoming-header-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.incoming-header-name{color:#fff;font-size:17px;font-weight:700;margin-bottom:4px}
+.incoming-header-sub{color:rgba(255,255,255,.75);font-size:13px}
+.incoming-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;padding:32px 20px}
+.incoming-ring{width:110px;height:110px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;position:relative;font-size:44px}
+.incoming-ring::before,
+.incoming-ring::after{content:'';position:absolute;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring 2s ease-out infinite}
+.incoming-ring::after{animation-delay:.7s}
+@keyframes ring{0%{width:110px;height:110px;opacity:.6}100%{width:180px;height:180px;opacity:0}}
+.incoming-label{font-size:20px;font-weight:600;margin-bottom:6px}
+.incoming-sub{font-size:14px;color:var(--text2);margin-bottom:36px}
+.incoming-actions{display:flex;gap:20px}
+.btn-answer{width:70px;height:70px;border-radius:50%;background:var(--green);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.btn-answer:active{transform:scale(.9)}
+.btn-reject{width:70px;height:70px;border-radius:50%;background:var(--red);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.btn-reject:active{transform:scale(.9)}
+.btn-icon{width:28px;height:28px;fill:#fff}
+/* ---- CALL ---- */
+#screen-call{position:fixed;inset:0;background:#000;display:flex;flex-direction:column}
+/* Mitad superior: vídeo */
+#call-video-section{position:relative;height:50vh;flex-shrink:0;background:#000}
+#remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.call-top{position:absolute;top:8px;left:8px;right:8px;display:flex;align-items:center;gap:12px;padding:6px 10px;background:rgba(0,0,0,.5);border-radius:10px;z-index:2}
+.call-top-label{font-size:13px;font-weight:500;color:#fff}
+.call-timer{font-size:12px;color:rgba(255,255,255,.7);margin-left:auto}
+/* Mitad inferior: chat + botones */
+#call-bottom-section{flex:1;display:flex;flex-direction:column;background:#f0f6ff;overflow:hidden;border-top:1px solid var(--blue-light)}
+/* Chat — mismo estilo que visitante */
+/* Chat — colores idénticos a visitante.html */
+.chat-header-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--blue-light);font-size:12px;font-weight:600;color:var(--blue-dark);text-transform:uppercase;letter-spacing:.07em}
+.chat-header-title{font-size:12px;font-weight:600;color:var(--blue-dark);letter-spacing:.07em;text-transform:uppercase}
+.chat-header-sub{font-size:10px;color:var(--text2)}
+.chat-quickreplies{display:flex;flex-wrap:wrap;gap:5px;padding:6px 10px 8px;border-bottom:1px solid var(--blue-light)}
+.quick-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:#fff;border:1px solid var(--blue-light);color:var(--blue-dark);cursor:pointer;white-space:nowrap;transition:all .15s}
+.quick-btn:active{background:var(--blue-light);border-color:var(--accent);color:var(--blue-dark)}
+.chat-messages{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
+.chat-empty{text-align:center;color:var(--text2);font-size:12px;padding:20px 0}
+.chat-msg{max-width:85%;padding:7px 11px;border-radius:12px;font-size:13px;line-height:1.4;word-break:break-word}
+.chat-msg.sent{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg.recv{background:#fff;color:var(--blue-dark);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--blue-light)}
+.chat-input-row{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid var(--blue-light)}
+.chat-input{flex:1;padding:8px 12px;background:#fff;border:1px solid var(--blue-light);border-radius:20px;font-size:13px;color:var(--blue-dark);outline:none}
+.chat-input:focus{border-color:var(--accent)}
+.chat-send{width:34px;height:34px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.chat-send:active{transform:scale(.92)}
+/* Botones acción debajo del chat */
+.call-action-row{display:flex;gap:10px;padding:8px 12px 12px}
+.call-action-row button{flex:1;padding:14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-mute-full{background:#fff;color:var(--blue-dark);border:1.5px solid var(--blue-light)}
+.btn-mute-full.active{background:var(--orange);color:#fff}
+.btn-hangup-full{background:var(--red);color:#fff}
+.quick-btn:active{opacity:.7}
+/* Notification badge sobre chat button */
+.chat-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);font-size:10px;display:none;align-items:center;justify-content:center;color:#fff;font-weight:600}
+.chat-badge.show{display:flex}
+.call-btn-wrap{position:relative}
+/* Status bar */
+.quiet-bar{position:fixed;top:0;left:0;right:0;background:var(--orange);color:#000;font-size:12px;font-weight:600;text-align:center;padding:6px;display:none;z-index:100}
+.quiet-bar.show{display:block}
+
+/* ── Menú navegación inferior ── */
+#nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:1px solid var(--blue-light);z-index:500;display:none}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;padding:8px 0;position:relative}
+.nav-btn svg{width:24px;height:24px;stroke:#B5D4F4;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn.active svg{stroke:var(--blue-dark)}
+.nav-dot{position:absolute;top:6px;right:calc(50% - 14px);width:8px;height:8px;border-radius:50%;background:#E24B4A;display:none}
+.nav-dot.show{display:block}
+/* ── Pantallas secundarias ── */
+#screen-llamadas,#screen-comunidad{background:var(--bg);position:fixed;inset:0;z-index:100;display:none;flex-direction:column;padding-bottom:64px}
+.sec-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 20px;color:#fff}
+.sec-title{font-size:20px;font-weight:700}
+.sec-list{flex:1;overflow-y:auto;padding:12px 16px}
+.sec-empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px}
+.llamada-card,.aviso-card{background:#fff;border-radius:12px;border:1px solid var(--blue-light);padding:14px 16px;margin-bottom:10px}
+.llamada-card{display:flex;align-items:flex-start;gap:12px}
+.llamada-icono{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.llamada-icono.ok{background:#EAF3DE}.llamada-icono.ko{background:#FCEBEB}
+.llamada-info{flex:1}
+.llamada-estado{font-size:13px;font-weight:600;color:var(--blue-dark);margin-bottom:2px}
+.llamada-fecha{font-size:11px;color:var(--text2);margin-bottom:4px}
+.llamada-msg{font-size:12px;color:var(--text2);background:var(--bg);border-radius:8px;padding:6px 10px;margin-top:6px;border-left:3px solid var(--blue-light)}
+.aviso-titulo{font-size:14px;font-weight:600;color:var(--blue-dark);margin-bottom:4px}
+.aviso-cuerpo{font-size:13px;color:var(--text2);line-height:1.4;margin-bottom:6px}
+.aviso-fecha{font-size:11px;color:var(--text3)}
+.aviso-new{width:8px;height:8px;border-radius:50%;background:#E24B4A;display:inline-block;margin-left:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div class="quiet-bar" id="quiet-bar">🔕 Modo silencioso activo</div>
+
+<!-- ════════════ PANTALLA: INSTALL ════════════ -->
+<div class="screen" id="screen-install" style="justify-content:flex-start;padding-top:48px">
+  <div style="margin-bottom:24px">
+    <img src="/portero-virtual/icono.png" width="96" height="96" style="object-fit:contain">
+  </div>
+  <p class="install-title">Instala tu portero</p>
+  <p class="install-sub">Para recibir llamadas necesitas instalar esta app en tu móvil</p>
+
+  <!-- Sección dinámica: se rellena por JS según el dispositivo -->
+  <div id="install-steps-wrap" style="width:100%;max-width:340px;margin-bottom:24px"></div>
+
+  <!-- Botón instalar Android (visible si el navegador lo soporta) -->
+  <button class="btn-primary" id="btn-install-android" style="display:none" onclick="doInstallAndroid()">
+    📲 Instalar app
+  </button>
+
+  <!-- Siempre visible: botón para quien ya instaló o quiere continuar -->
+  <button class="btn-secondary" id="btn-ya-instale" onclick="checkInstalled()" style="margin-top:10px">
+    Ya la instalé — continuar →
+  </button>
+</div>
+
+<!-- ════════════ PANTALLA: SETUP ════════════ -->
+<div class="screen" id="screen-setup" style="display:none">
+  <div style="text-align:center;margin-bottom:8px">
+    <img src="/portero-virtual/icono.png" width="64" height="64" style="object-fit:contain">
+  </div>
+  <div class="setup-header">
+    <p class="setup-title">Configura tu portero</p>
+    <p class="setup-sub">Selecciona tu portal y tu vivienda para empezar a recibir llamadas</p>
+  </div>
+
+  <div class="portal-info-box" id="portal-info-box">
+    <div class="portal-name" id="pi-name">Cargando…</div>
+    <div class="portal-addr" id="pi-addr"></div>
+  </div>
+
+  <div class="select-wrap">
+    <div class="field-label">Tu vivienda</div>
+    <select id="sel-floor">
+      <option value="">— Selecciona tu piso —</option>
+    </select>
+  </div>
+
+  <button class="btn-primary" onclick="activate()">Activar portero</button>
+</div>
+
+<!-- ════════════ PANTALLA: CONFIRM ════════════ -->
+<div class="screen" id="screen-confirm" style="display:none">
+  <div class="confirm-icon">🏠</div>
+  <p class="install-title" style="margin-bottom:8px" id="confirm-title">Activa tu portero</p>
+  <p class="install-sub" id="confirm-sub">¿Confirmas que quieres activar el portero para esta vivienda?</p>
+  <button class="btn-primary" style="margin-top:24px" onclick="doActivate()">Sí, activar</button>
+  <button class="btn-secondary" onclick="showAllScreens('screen-setup')">Cambiar vivienda</button>
+</div>
+
+<!-- ════════════ PANTALLA: SUCCESS ════════════ -->
+<div class="screen" id="screen-success" style="display:none">
+  <div class="success-icon">✅</div>
+  <p class="install-title" style="margin-bottom:12px;text-align:center">¡Todo listo!</p>
+  <p style="font-size:16px;color:var(--text);font-weight:600;text-align:center;margin-bottom:8px" id="success-label">Tu portero está listo</p>
+  <p style="font-size:14px;color:var(--text2);text-align:center;margin-bottom:8px;line-height:1.5;max-width:300px">
+    Ya puedes recibir llamadas del portal en tu móvil
+  </p>
+  <p style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:32px" id="success-countdown">
+    Accediendo al portero en <span id="countdown-num">3</span>s…
+  </p>
+  <button class="btn-primary" onclick="goToStandby()" style="max-width:300px">
+    Abrir mi portero →
+  </button>
+</div>
+
+<!-- ════════════ PANTALLA: STANDBY ════════════ -->
+<div class="screen" id="screen-standby" style="display:none">
+  <!-- Cabecera azul con logo -->
+  <div class="standby-header">
+    <div class="standby-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
+    </div>
+    <div class="standby-label" id="standby-portal-header">Mi portero</div>
+    <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
+    <span class="standby-connected-badge"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>Conectado</span>
+  </div>
+
+  <div class="standby-body">
+  <div class="standby-actions">
+    <div class="standby-row">
+      <span class="standby-row-label">Vivienda</span>
+      <span class="standby-row-val" id="sb-floor">—</span>
+    </div>
+    <div class="standby-row">
+      <span class="standby-row-label">Modo silencioso</span>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-quiet" onchange="toggleQuiet()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="quiet-times" id="quiet-times">
+      <div class="time-row">
+        <span>De</span>
+        <input type="time" id="quiet-from" value="22:00" onchange="saveQuiet()">
+        <span>a</span>
+        <input type="time" id="quiet-to" value="09:00" onchange="saveQuiet()">
+      </div>
+    </div>
+    <div class="standby-row" id="notif-row">
+      <span class="standby-row-label">Notificaciones</span>
+      <span class="standby-row-val" id="sb-notif" style="font-size:13px">—</span>
+    </div>
+    <!-- Banner de activar notificaciones — visible si no están configuradas -->
+    <div id="notif-banner" style="display:none;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:14px;margin-top:12px">
+      <p style="font-size:13px;color:#f97316;font-weight:600;margin-bottom:6px">⚠️ Notificaciones no activadas</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.4">Sin ellas no recibirás la llamada cuando el móvil esté bloqueado.</p>
+      <button onclick="activarNotificaciones()" style="width:100%;padding:11px;border-radius:10px;background:#f97316;border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+        Activar notificaciones
+      </button>
+    </div>
+  </div>
+
+
+  </div>
+</div>
+
+<!-- ════════════ PANTALLA: INCOMING ════════════ -->
+<div class="screen" id="screen-incoming" style="display:none">
+  <!-- Cabecera azul con logo -->
+  <div class="incoming-header">
+    <div class="incoming-header-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
+    </div>
+    <div class="incoming-header-name" id="incoming-portal-name">Mi portero</div>
+    <div class="incoming-header-sub">Visita en el portal</div>
+  </div>
+  <!-- Cuerpo blanco con animación y botones -->
+  <div class="incoming-body">
+    <div class="incoming-ring">📞</div>
+    <p class="incoming-label" style="color:var(--blue-dark)">Llamada entrante</p>
+    <p class="incoming-sub" id="incoming-sub" style="color:var(--text2)">Alguien está llamando</p>
+    <div class="incoming-actions">
+      <button class="btn-reject" onclick="rejectCall()">
+        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+      </button>
+      <button class="btn-answer" onclick="answerCall()">
+        <svg class="btn-icon" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ PANTALLA: LLAMADA ════════════ -->
+<div id="screen-call" style="display:none">
+  <audio id="visitor-audio" autoplay playsinline></audio>
+
+  <!-- Mitad superior: vídeo -->
+  <div id="call-video-section">
+    <video id="remote-video" autoplay playsinline webkit-playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000"></video>
+    <div id="video-placeholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111;z-index:5;transition:opacity 0.5s">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.3"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <p style="color:rgba(255,255,255,0.35);font-size:14px;margin-top:12px">Conectando vídeo...</p>
+    </div>
+    <div class="call-top">
+      <span style="font-size:16px">📹</span>
+      <span class="call-top-label" id="call-top-label">En llamada</span>
+      <span class="call-timer" id="call-timer">0:00</span>
+    </div>
+  </div>
+
+  <!-- Mitad inferior: chat + botones -->
+  <div id="call-bottom-section">
+    <!-- Cabecera chat -->
+    <div class="chat-header-row">
+      <span class="chat-header-title">💬 CHAT</span>
+      <span class="chat-header-sub">SOLO VISIBLE DURANTE LA LLAMADA</span>
+    </div>
+    <!-- Respuestas rápidas -->
+    <div class="chat-quickreplies">
+      <button class="quick-btn" onclick="sendChat('Ahora bajo')">Ahora bajo</button>
+      <button class="quick-btn" onclick="sendChat('Deja el paquete en la puerta')">Deja en la puerta</button>
+      <button class="quick-btn" onclick="sendChat('Deja en conserjería')">Conserjería</button>
+      <button class="quick-btn" onclick="sendChat('Vuelve en 10 minutos')">10 minutos</button>
+      <button class="quick-btn" onclick="sendChat('No esperaba visita')">No esperaba visita</button>
+    </div>
+    <!-- Mensajes -->
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty" id="chat-empty">Los mensajes aparecerán aquí</div>
+    </div>
+    <!-- Input -->
+    <div class="chat-input-row">
+      <input id="chat-input-vecino" type="text" class="chat-input" placeholder="Escribe un mensaje..." maxlength="200"
+        onkeydown="if(event.key==='Enter')sendChatInput()">
+      <button class="chat-send" onclick="sendChatInput()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+    <!-- Botones acción -->
+    <div class="call-action-row">
+      <button class="btn-mute-full active" id="btn-mute" onclick="toggleMute()">
+        <svg id="mute-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+        </svg>
+        <span id="mute-label">Silenciar</span>
+      </button>
+      <button class="btn-hangup-full" onclick="hangUp()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+        Colgar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONSTANTES ──────────────────────────────────────────────────────────────
+const SERVER = 'https://merry-joy-production-4504.up.railway.app';
+
+const TURN_CONFIG = {
+  iceTransportPolicy: 'all',
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: [
+        'turn:global.relay.metered.ca:443?transport=tcp',
+        'turns:global.relay.metered.ca:443?transport=tcp'
+      ],
+      username:   'e6cb7af71057fddef426ea95',
+      credential: 'el8RlAfkuUr8C3eOA'
+    }
+  ]
+};
+
+// ─── VARIABLES GLOBALES — ¡SOLO UNA DECLARACIÓN DE CADA UNA! ─────────────────
+let myRoom     = '';
+let myPortalId   = '';
+let myPortalName = ''; // nombre del portal para mostrar en standby
+let myFloorId  = '';   // ID de BD de la vivienda (nuevo sistema)
+let myFloor    = '';   // número (legacy)
+let myLetter   = '';   // letra (legacy)
+let myLabel    = '';   // texto libre para mostrar
+
+let ws             = null;
+let pc             = null;
+let localStream    = null;
+let callTimerInt   = null;
+let callSeconds    = 0;
+let isMuted        = false;
+let chatOpen       = false;
+let unreadChat     = 0;
+let pendingOffer   = null;   // guarda offer recibido antes de contestar
+let deferredInstall = null;
+
+// ─── URL PARAMS ───────────────────────────────────────────────────────────────
+const urlParams  = new URLSearchParams(location.search);
+const urlPortal  = urlParams.get('portal')    || localStorage.getItem('portero-portal-url') || '';
+const urlFloorId = urlParams.get('floor')     || localStorage.getItem('portero-floor-url')  || '';
+const urlContest = urlParams.get('contestar') === 'true';
+
+// Guardar params si llegaron por URL (enlace del panel)
+if (urlParams.get('portal'))  localStorage.setItem('portero-portal-url', urlParams.get('portal'));
+if (urlParams.get('floor'))   localStorage.setItem('portero-floor-url',  urlParams.get('floor'));
+
+// ─── INIT — síncrona, sin await ───────────────────────────────────────────────
+function initApp() {
+  loadStoredConfig();
+
+  // urlContest manejado al final del script
+
+  // PRIORIDAD 2: app ya configurada (instalada con config guardada)
+  if (isInstalledApp() || (myRoom && myPortalId)) {
+    if (myRoom && myPortalId) {
+  showAllScreens('screen-standby');
+  updateStandbyUI();
+  loadPortalInfo();
+  connectWS();
+  // Mostrar menú inferior
+  setTimeout(function(){ const n=document.getElementById('nav-bar'); if(n)n.style.display='flex'; }, 100);
+
+    } else if (urlPortal || urlFloorId) {
+      showAllScreens('screen-setup');
+      loadPortalInfo();
+    } else {
+      showAllScreens('screen-setup');
+      const nameEl = document.getElementById('pi-name');
+      const addrEl = document.getElementById('pi-addr');
+      if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+      if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
+    }
+  } else {
+    // No instalada — mostrar siempre pantalla de instalación primero
+    showAllScreens('screen-install');
+    showInstallSection();
+  }
+  checkQuietMode();
+}
+
+function isInstalledApp() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.navigator.standalone === true ||
+    localStorage.getItem('portero-installed') === '1'
+  );
+}
+
+function loadStoredConfig() {
+  myRoom     = localStorage.getItem('portero-room')     || '';
+  myPortalId   = localStorage.getItem('portero-portal')      || urlPortal || '';
+  myPortalName = localStorage.getItem('portero-portal-name') || '';
+  myFloorId  = localStorage.getItem('portero-floorId')  || urlFloorId || '';
+  myFloor    = localStorage.getItem('portero-floor')    || '';
+  myLetter   = localStorage.getItem('portero-letter')   || '';
+  myLabel    = localStorage.getItem('portero-label')    || '';
+}
+
+// ─── PANTALLAS ────────────────────────────────────────────────────────────────
+function showAllScreens(activeId) {
+  const screens = [
+    'screen-install',
+    'screen-setup',
+    'screen-confirm',
+    'screen-success',
+    'screen-standby',
+    'screen-incoming',
+    'screen-call'
+  ];
+  screens.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === activeId) ? '' : 'none';
+  });
+}
+
+// ─── INSTALL ──────────────────────────────────────────────────────────────────
+function showInstallSection() {
+  const ua      = navigator.userAgent.toLowerCase();
+  const isIos   = /iphone|ipad|ipod/.test(ua);
+  const isAndroid = /android/.test(ua);
+  const wrap    = document.getElementById('install-steps-wrap');
+  if (!wrap) return;
+
+  if (isIos) {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">1.</strong> Pulsa el botón
+            <strong style="color:var(--text)">Compartir ⎙</strong> en la barra de Safari</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">2.</strong> Selecciona
+            <strong style="color:var(--text)">"Añadir a pantalla de inicio"</strong></div>
+          <div><strong style="color:var(--text)">3.</strong> Abre la app desde tu pantalla de inicio</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,200,0,.12);border-radius:10px;padding:12px;font-size:13px;color:#f0c040;margin-bottom:8px">
+        💡 Debe abrirse desde <strong>Safari</strong>. Si usas Chrome en iPhone, cópiala en Safari primero.
+      </div>`;
+  } else if (isAndroid) {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">1.</strong>
+            Pulsa <strong style="color:var(--text)">"Instalar app"</strong> aquí abajo</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--text)">2.</strong>
+            Acepta cuando el sistema te lo pida</div>
+          <div><strong style="color:var(--text)">3.</strong>
+            Abre la app instalada y configura tu piso</div>
+        </div>
+      </div>`;
+    // Mostrar botón instalar si el navegador lo soporta
+    const btn = document.getElementById('btn-install-android');
+    if (btn) btn.style.display = '';
+  } else {
+    wrap.innerHTML = `
+      <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:16px;margin-bottom:8px;font-size:13px;color:var(--text2);line-height:1.6">
+        Abre este enlace desde el navegador de tu móvil (Chrome en Android o Safari en iPhone)
+        para poder instalar la app.
+      </div>`;
+  }
+}
+
+function doInstallAndroid() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+  } else {
+    // Sin prompt disponible: guiar al usuario al menú del navegador
+    alert('Pulsa el menú ⋮ de tu navegador y selecciona "Añadir a pantalla de inicio" o "Instalar app"');
+  }
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  const btn = document.getElementById('btn-install-android');
+  if (btn) btn.onclick = () => deferredInstall.prompt();
+});
+
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('portero-installed', '1');
+  checkInstalled();
+});
+
+function checkInstalled() {
+  localStorage.setItem('portero-installed', '1');
+  goToSetup();
+}
+
+function goToSetup() {
+  localStorage.setItem('portero-installed', '1');
+  showAllScreens('screen-setup');
+  loadPortalInfo();
+}
+
+// ─── PORTAL INFO ──────────────────────────────────────────────────────────────
+async function loadPortalInfo() {
+  const pid = urlPortal || localStorage.getItem('portero-portal-url') || myPortalId;
+  if (!pid) {
+    const nameEl = document.getElementById('pi-name');
+    const addrEl = document.getElementById('pi-addr');
+    if (nameEl) nameEl.textContent = 'Usa el enlace del administrador';
+    if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SERVER}/api/portal/${pid}/public`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const nameEl = document.getElementById('pi-name');
+    const addrEl = document.getElementById('pi-addr');
+    if (nameEl) nameEl.textContent = data.name || 'Portal';
+    const incPortalName = document.getElementById('incoming-portal-name');
+    if (incPortalName) incPortalName.textContent = data.name || 'Mi portero';
+    if (addrEl) addrEl.textContent = [data.address, data.city].filter(Boolean).join(', ');
+
+    // Rellenar selector de viviendas
+    const sel = document.getElementById('sel-floor');
+    if (sel && data.floors) {
+      sel.innerHTML = '<option value="">— Selecciona tu piso —</option>';
+      data.floors.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.label;
+        if (f.id === urlFloorId || f.id === myFloorId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Guardar portalId
+    myPortalId   = data.id || pid;
+    myPortalName = data.name || '';
+    localStorage.setItem('portero-portal', myPortalId);
+    localStorage.setItem('portero-portal-name', myPortalName);
+
+  } catch (e) {
+    console.error('loadPortalInfo error:', e);
+    const nameEl = document.getElementById('pi-name');
+    if (nameEl) nameEl.textContent = 'Error al cargar portal';
+  }
+}
+
+// ─── ACTIVATE ─────────────────────────────────────────────────────────────────
+function activate() {
+  const sel = document.getElementById('sel-floor');
+  if (!sel || !sel.value) {
+    alert('Selecciona tu vivienda');
+    return;
+  }
+  const selectedOption = sel.options[sel.selectedIndex];
+  myFloorId = sel.value;
+  myLabel   = selectedOption ? selectedOption.textContent : sel.value;
+  doActivate();
+}
+
+async function doActivate() {
+  if (!myFloorId || !myPortalId) {
+    showAllScreens('screen-setup');
+    return;
+  }
+
+  // Pedir micrófono primero (requiere gesto del usuario)
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    alert('Necesitamos acceso al micrófono: ' + e.message);
+    return;
+  }
+
+  // Guardar configuración
+  myRoom = `${myPortalId}-${myFloorId}`;
+  localStorage.setItem('portero-room',    myRoom);
+  localStorage.setItem('portero-portal',  myPortalId);
+  localStorage.setItem('portero-floorId', myFloorId);
+  localStorage.setItem('portero-floor',   myFloor);
+  localStorage.setItem('portero-letter',  myLetter);
+  localStorage.setItem('portero-label',   myLabel);
+  localStorage.setItem('portero-installed', '1');
+
+  // Registrar push (pide permiso de notificaciones — popup nativo del sistema)
+  await setupPush();
+
+  showActivationSuccess();
+}
+
+function showActivationSuccess() {
+  // Restaurar icono (puede estar en ⏳ si vino de doActivate)
+  const icon = document.querySelector('#screen-success .success-icon');
+  if (icon) icon.textContent = '✅';
+
+  const el = document.getElementById('success-label');
+  if (el) el.textContent = `Has configurado correctamente "${myLabel}"`;
+
+  const perm = ('Notification' in window) ? Notification.permission : 'default';
+  const cd   = document.getElementById('success-countdown');
+  if (cd) {
+    cd.innerHTML = perm === 'granted'
+      ? '🔔 Notificaciones activas — recibirás llamadas aunque el móvil esté bloqueado'
+      : '⚠️ Podrás recibir llamadas solo con la app abierta. Activa las notificaciones desde ajustes.';
+  }
+
+  showAllScreens('screen-success');
+  // Cuenta atrás de 4 segundos
+  let secs = 4;
+  const numEl = document.getElementById('countdown-num');
+  if (numEl) numEl.textContent = secs;
+  const interval = setInterval(() => {
+    secs--;
+    if (numEl) numEl.textContent = secs;
+    if (secs <= 0) {
+      clearInterval(interval);
+      goToStandby();
+    }
+  }, 1000);
+}
+
+function goToStandby() {
+  showAllScreens('screen-standby');
+  updateStandbyUI();
+  connectWS();
+  const _nav = document.getElementById('nav-bar');
+  if (_nav) { _nav.style.display = 'flex'; _nav.style.setProperty('display','flex'); }
+  ['screen-llamadas','screen-comunidad'].forEach(id => { const e=document.getElementById(id); if(e)e.style.display='none'; });
+  ['inicio','llamadas','comunidad'].forEach(t => { const b=document.getElementById('nav-'+t); if(b)b.classList.toggle('active',t==='inicio'); });
+}
+
+function updateStandbyUI() {
+  const sbPortal = document.getElementById('sb-portal');
+  const sbFloor  = document.getElementById('sb-floor');
+  const sbLabel  = document.getElementById('standby-label');
+  const sbSub    = document.getElementById('standby-sub');
+
+  if (sbPortal) sbPortal.textContent = myPortalName || (myPortalId ? myPortalId.slice(0,8) + '…' : '—');
+  const sbPortalHeader = document.getElementById('standby-portal-header');
+  if (sbPortalHeader) sbPortalHeader.textContent = myPortalName || 'Mi portero';
+  if (sbFloor)  sbFloor.textContent  = myLabel || myFloorId || '—';
+  if (sbLabel)  sbLabel.textContent  = myLabel || 'Mi portero';
+  if (sbSub)    sbSub.textContent    = 'Esperando llamadas…';
+
+  // Estado notificaciones
+  const sbNotif  = document.getElementById('sb-notif');
+  const banner   = document.getElementById('notif-banner');
+  if ('Notification' in window) {
+    const perm = Notification.permission;
+    if (sbNotif) sbNotif.textContent = perm === 'granted' ? '✅ Activas' :
+                                       perm === 'denied'  ? '❌ Bloqueadas (ajustes del móvil)' : '⚠️ Sin configurar';
+    if (banner) banner.style.display = (perm !== 'granted') ? '' : 'none';
+  } else {
+    if (sbNotif) sbNotif.textContent = 'No soportadas';
+  }
+}
+
+// ─── PUSH ─────────────────────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function setupPush() {
+  if (!myPortalId || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/portero-virtual/sw.js');
+    await navigator.serviceWorker.ready;
+
+    // Pedir permiso de notificaciones — muestra popup nativo del sistema
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.warn('Notificaciones no concedidas:', permission);
+      return;
+    }
+
+    const vapidRes = await fetch(`${SERVER}/api/vapid-public-key`);
+    const { publicKey } = await vapidRes.json();
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+
+    // ✅ CRÍTICO: enviar floorId (ID de BD de la vivienda)
+    const res = await fetch(`${SERVER}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        portalId:    myPortalId,
+        floorId:     myFloorId,    // ← ID de BD — campo principal
+        floorNumber: myFloor,       // ← legacy (puede ser vacío)
+        floorLetter: myLetter,      // ← legacy (puede ser vacío)
+        subscription
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    console.log('✅ Push suscripción guardada para floorId:', myFloorId);
+  } catch (e) {
+    console.error('setupPush error:', e);
+  }
+}
+
+// ─── WEBSOCKET ────────────────────────────────────────────────────────────────
+function connectWS(onReady) {
+  if (!myRoom) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    if (onReady) onReady();
+    return;
+  }
+
+  const wsUrl = SERVER.replace('https://', 'wss://').replace('http://', 'ws://');
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    console.log('WS conectado');
+    ws.send(JSON.stringify({
+      type:       'join',
+      room:       myRoom,
+      role:       'neighbor',
+      portalId:   myPortalId,
+      floorId:    myFloorId,
+      floorLabel: myLabel
+    }));
+    if (onReady) onReady();
+  };
+
+  ws.onmessage = async (e) => {
+    let data;
+    try { data = JSON.parse(e.data); } catch { return; }
+    await handleWsMessage(data);
+  };
+
+  ws.onclose = () => {
+    console.log('WS cerrado, reconectando en 5s…');
+    setTimeout(() => {
+      if (myRoom) connectWS();
+    }, 5000);
+  };
+
+  ws.onerror = (e) => console.error('WS error:', e);
+}
+
+async function handleWsMessage(data) {
+  switch (data.type) {
+
+    case 'visitor-calling': {
+      if (isQuietMode()) showQuietBar();
+      showAllScreens('screen-incoming');
+      const sub = document.getElementById('incoming-sub');
+      if (sub) sub.textContent = `Visita para ${myLabel}`;
+      playRingTone();
+      saveLlamada(data);
+      break;
+    }
+
+    case 'offer': {
+      await handleOffer(data.sdp);
+      break;
+    }
+
+    case 'ice': {
+      if (pc && data.candidate) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch {}
+      }
+      break;
+    }
+
+    case 'hangup': {
+      endCall();
+      break;
+    }
+
+    case 'chat': {
+      receiveChatMessage(data.message);
+      break;
+    }
+    case 'visitor-message': {
+      saveMensajeVisitante(data.message);
+      // Mostrar toast si la app está en standby
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;top:16px;left:16px;right:16px;background:#1a3a5c;color:#fff;padding:14px 16px;border-radius:12px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+      toast.innerHTML = '💬 Mensaje del visitante: <strong>' + data.message + '</strong>';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+      break;
+    }
+  }
+}
+
+// ─── LLAMADA ──────────────────────────────────────────────────────────────────
+function playRingTone() {
+  try {
+    if (isQuietMode()) return;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(freq, start, dur) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur);
+      g.gain.setValueAtTime(0.3, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+    }
+    for (let i = 0; i < 3; i++) {
+      beep(880, i * 0.8, 0.3);
+      beep(660, i * 0.8 + 0.35, 0.3);
+    }
+  } catch {}
+}
+
+function answerCall() {
+  markLlamadaContestada();
+  send(JSON.stringify({ type: 'neighbor-ready', room: myRoom }));
+  showAllScreens('screen-call');
+  startCallTimer();
+  // Botón arranca en naranja (audio activo)
+  isMuted = false;
+  const muteBtn = document.getElementById('btn-mute');
+  if (muteBtn) muteBtn.classList.add('active');
+  const muteIcon = document.getElementById('mute-icon');
+  if (muteIcon) muteIcon.innerHTML = '<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>';
+  const topLabel = document.getElementById('call-top-label');
+  if (topLabel) topLabel.textContent = myLabel || 'En llamada';
+}
+
+async function handleOffer(sdp) {
+  try {
+    if (!localStream) {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    }
+    pc = new RTCPeerConnection(TURN_CONFIG);
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    pc.ontrack = ({ track, streams }) => {
+      if (track.kind === 'video') {
+        const video = document.getElementById('remote-video');
+        video.srcObject = streams[0];
+        video.onplaying = () => {
+          const ph = document.getElementById('video-placeholder');
+          if (ph) { ph.style.opacity = '0'; setTimeout(() => ph.style.display = 'none', 500); }
+        };
+      }
+      if (track.kind === 'audio') {
+        document.getElementById('visitor-audio').srcObject = streams[0];
+      }
+    };
+
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) send(JSON.stringify({ type: 'ice', room: myRoom, candidate }));
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['disconnected','failed','closed'].includes(pc.connectionState)) endCall();
+    };
+
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    send(JSON.stringify({ type: 'answer', room: myRoom, sdp: pc.localDescription }));
+
+  } catch(e) {
+    console.error('handleOffer error:', e);
+    endCall();
+  }
+}
+
+function rejectCall() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'busy', room: myRoom }));
+  }
+  showAllScreens('screen-standby');
+}
+
+function hangUp() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'hangup', room: myRoom }));
+  }
+  endCall();
+}
+
+function endCall() {
+  if (pc) { pc.close(); pc = null; }
+  if (callTimerInt) { clearInterval(callTimerInt); callTimerInt = null; }
+  pendingOffer = null;
+  isMuted = false;
+  // Resetear botón de mute a estado inicial (naranja, activo)
+  const muteBtn2 = document.getElementById('btn-mute');
+  if (muteBtn2) muteBtn2.classList.add('active');
+  const muteIcon2 = document.getElementById('mute-icon');
+  if (muteIcon2) muteIcon2.innerHTML = '<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>';
+  const muteLabel2 = document.getElementById('mute-label');
+  if (muteLabel2) muteLabel2.textContent = 'Silenciar';
+  chatOpen = false;
+  unreadChat = 0;
+  const badge = document.getElementById('chat-badge');
+  if (badge) { badge.classList.remove('show'); badge.textContent = '!'; }
+  const chatPanel = document.getElementById('chat-panel');
+  if (chatPanel) chatPanel.classList.remove('open');
+  const screenCall = document.getElementById('screen-call');
+  if (screenCall) screenCall.classList.remove('chat-open');
+  const chatMessages = document.getElementById('chat-messages');
+  if (chatMessages) chatMessages.innerHTML = '';
+  const chatInput = document.getElementById('chat-input-vecino');
+  if (chatInput) chatInput.value = '';
+  showAllScreens('screen-standby');
+}
+
+function startCallTimer() {
+  callSeconds = 0;
+  const el = document.getElementById('call-timer');
+  callTimerInt = setInterval(() => {
+    callSeconds++;
+    const m = Math.floor(callSeconds / 60);
+    const s = String(callSeconds % 60).padStart(2, '0');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  // Silenciar/activar micrófono del vecino
+  if (localStream) {
+    localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+  }
+  // Silenciar/activar audio del visitante (tanto en <audio> como en <video>)
+  const visitorAudio = document.getElementById('visitor-audio');
+  if (visitorAudio) visitorAudio.muted = isMuted;
+  const remoteVideo = document.getElementById('remote-video');
+  if (remoteVideo) remoteVideo.muted = isMuted;
+  // Actualizar botón: naranja = activo, negro+tachado = silenciado
+  const btn = document.getElementById('btn-mute');
+  if (btn) btn.classList.toggle('active', !isMuted);
+  // Actualizar icono
+  const icon = document.getElementById('mute-icon');
+  if (icon) {
+    icon.innerHTML = isMuted
+      ? '<path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>'
+      : '<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>';
+  }
+  const label = document.getElementById('mute-label');
+  if (label) label.textContent = isMuted ? 'Audio cortado' : 'Silenciar';
+  // Notificar al visitante del estado del audio
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'mute', muted: isMuted, room: myRoom }));
+  }
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.toggle('open', chatOpen);
+  const screen = document.getElementById('screen-call');
+  if (screen) screen.classList.toggle('chat-open', chatOpen);
+  if (chatOpen) {
+    unreadChat = 0;
+    const badge = document.getElementById('chat-badge');
+    if (badge) { badge.classList.remove('show'); }
+  }
+}
+
+function sendChat(message) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'chat', message, room: myRoom }));
+  appendChatMsg(message, 'sent');
+}
+
+function sendChatInput() {
+  const input = document.getElementById('chat-input-vecino');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  sendChat(text);
+  input.value = '';
+}
+
+function receiveChatMessage(message) {
+  appendChatMsg(message, 'recv');
+  if (!chatOpen) {
+    unreadChat++;
+    const badge = document.getElementById('chat-badge');
+    if (badge) {
+      badge.textContent = unreadChat > 9 ? '!' : String(unreadChat);
+      badge.classList.add('show');
+    }
+  }
+}
+
+function appendChatMsg(text, type) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `chat-msg ${type}`;
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ─── MODO SILENCIOSO ──────────────────────────────────────────────────────────
+async function activarNotificaciones() {
+  await setupPush();
+  updateStandbyUI();
+}
+
+function toggleQuiet() {
+  const checked = document.getElementById('toggle-quiet').checked;
+  const times   = document.getElementById('quiet-times');
+  if (times) times.classList.toggle('visible', checked);
+  saveQuiet();
+}
+
+function saveQuiet() {
+  const checked = document.getElementById('toggle-quiet').checked;
+  const from    = document.getElementById('quiet-from').value;
+  const to      = document.getElementById('quiet-to').value;
+  localStorage.setItem('portero-quiet',      checked ? '1' : '0');
+  localStorage.setItem('portero-quiet-from', from);
+  localStorage.setItem('portero-quiet-to',   to);
+}
+
+function checkQuietMode() {
+  const stored = localStorage.getItem('portero-quiet') === '1';
+  const toggle = document.getElementById('toggle-quiet');
+  const times  = document.getElementById('quiet-times');
+  const from   = localStorage.getItem('portero-quiet-from') || '22:00';
+  const to     = localStorage.getItem('portero-quiet-to')   || '09:00';
+
+  if (toggle) toggle.checked = stored;
+  if (times)  times.classList.toggle('visible', stored);
+
+  const fromEl = document.getElementById('quiet-from');
+  const toEl   = document.getElementById('quiet-to');
+  if (fromEl) fromEl.value = from;
+  if (toEl)   toEl.value   = to;
+}
+
+function isQuietMode() {
+  if (localStorage.getItem('portero-quiet') !== '1') return false;
+  const from = localStorage.getItem('portero-quiet-from') || '22:00';
+  const to   = localStorage.getItem('portero-quiet-to')   || '09:00';
+  const now  = new Date();
+  const cur  = now.getHours() * 60 + now.getMinutes();
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  const fMin = fh * 60 + fm;
+  const tMin = th * 60 + tm;
+  return fMin < tMin
+    ? (cur >= fMin && cur < tMin)
+    : (cur >= fMin || cur < tMin);
+}
+
+function showQuietBar() {
+  const bar = document.getElementById('quiet-bar');
+  if (bar) {
+    bar.classList.add('show');
+    setTimeout(() => bar.classList.remove('show'), 4000);
+  }
+}
+
+function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg); }
+
+// ─── ARRANCAR ─────────────────────────────────────────────────────────────────
+initApp();
+
+// Si el vecino llega desde una notificación push (?contestar=true)
+if (urlContest) {
+  const savedRoom    = localStorage.getItem('portero-room');
+  const savedPortal  = localStorage.getItem('portero-portal');
+  const savedFloorId = localStorage.getItem('portero-floorId');
+  const savedLabel   = localStorage.getItem('portero-label') || '';
+  if (savedRoom && savedPortal) {
+    myRoom = savedRoom; myPortalId = savedPortal; myFloorId = savedFloorId;
+    const sub = document.getElementById('incoming-sub');
+    if (sub && savedLabel) sub.textContent = savedLabel;
+    showAllScreens('screen-incoming');
+    connectWS();
+  }
+}
+</script>
+
+<div id="nav-bar" style="display:none">
+  <button class="nav-btn active" id="nav-inicio" onclick="navTo('inicio')">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  </button>
+  <button class="nav-btn" id="nav-llamadas" onclick="navTo('llamadas')">
+    <div class="nav-dot" id="dot-llamadas"></div>
+    <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.9v2z"/></svg>
+  </button>
+  <button class="nav-btn" id="nav-comunidad" onclick="navTo('comunidad')">
+    <div class="nav-dot" id="dot-comunidad"></div>
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+  </button>
+</div>
+
+<div id="screen-llamadas" style="display:none">
+  <div class="sec-header"><img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block"><div class="sec-title">Llamadas</div></div>
+  <div class="sec-list" id="llamadas-list"><div class="sec-empty">No hay llamadas registradas</div></div>
+</div>
+
+<div id="screen-comunidad" style="display:none">
+  <div class="sec-header"><img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block"><div class="sec-title">Mensajes de la comunidad</div></div>
+  <div class="sec-list" id="avisos-list"><div class="sec-empty">No hay mensajes de la comunidad</div></div>
+</div>
+
+<script>
+function navTo(t){
+  ['screen-llamadas','screen-comunidad'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  ['inicio','llamadas','comunidad'].forEach(x=>{const b=document.getElementById('nav-'+x);if(b)b.classList.toggle('active',x===t);});
+  if(t==='inicio'){showAllScreens('screen-standby');}
+  else if(t==='llamadas'){showAllScreens('screen-standby');const e=document.getElementById('screen-llamadas');if(e)e.style.display='flex';renderLlamadas();localStorage.setItem('llamadas-unread','0');const d=document.getElementById('dot-llamadas');if(d)d.classList.remove('show');}
+  else{showAllScreens('screen-standby');const e=document.getElementById('screen-comunidad');if(e)e.style.display='flex';renderComunidad();localStorage.setItem('comunidad-unread','0');const d=document.getElementById('dot-comunidad');if(d)d.classList.remove('show');}
+}
+function saveLlamada(data){const list=JSON.parse(localStorage.getItem('historial-llamadas')||'[]');list.unshift({fecha:new Date().toISOString(),contestada:false,mensaje:null});localStorage.setItem('historial-llamadas',JSON.stringify(list.slice(0,50)));const u=parseInt(localStorage.getItem('llamadas-unread')||'0')+1;localStorage.setItem('llamadas-unread',u);const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
+function markLlamadaContestada(){const list=JSON.parse(localStorage.getItem('historial-llamadas')||'[]');if(list.length){list[0].contestada=true;localStorage.setItem('historial-llamadas',JSON.stringify(list));}}
+function saveMensajeVisitante(msg){const list=JSON.parse(localStorage.getItem('historial-llamadas')||'[]');if(list.length){list[0].mensaje=msg;localStorage.setItem('historial-llamadas',JSON.stringify(list));}const u=parseInt(localStorage.getItem('llamadas-unread')||'0')+1;localStorage.setItem('llamadas-unread',u);const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
 function renderLlamadas(){
-  const el=document.getElementById('llamadas-list');
+  var el=document.getElementById('llamadas-list');
   el.innerHTML='<div class="sec-empty">Cargando...</div>';
   if(!myFloorId){el.innerHTML='<div class="sec-empty">No hay llamadas registradas</div>';return;}
   fetch(SERVER+'/api/floors/'+myFloorId+'/calls')
@@ -16,5 +1231,22 @@ function renderLlamadas(){
         return'<div class="llamada-card"><div class="llamada-icono '+cls+'">'+icon+'</div><div class="llamada-info"><div class="llamada-estado">'+estado+'</div><div class="llamada-fecha">'+f+'</div>'+msg+'</div></div>';
       }).join('');
     })
-    .catch(function(){el.innerHTML='<div class="sec-empty">Error al cargar llamadas</div>';});
+    .catch(function(){el.innerHTML='<div class="sec-empty">Error al cargar</div>';});
 }
+function saveAviso(data){const list=JSON.parse(localStorage.getItem('avisos-comunidad')||'[]');list.unshift({fecha:new Date().toISOString(),title:data.title||'Aviso',body:data.body||'',leido:false});localStorage.setItem('avisos-comunidad',JSON.stringify(list.slice(0,100)));const u=parseInt(localStorage.getItem('comunidad-unread')||'0')+1;localStorage.setItem('comunidad-unread',u);const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
+function renderComunidad(){const el=document.getElementById('avisos-list'),list=JSON.parse(localStorage.getItem('avisos-comunidad')||'[]');if(!list.length){el.innerHTML='<div class="sec-empty">No hay mensajes de la comunidad</div>';return;}el.innerHTML=list.map(a=>{const d=new Date(a.fecha),hoy=new Date().toDateString()===d.toDateString(),f=hoy?'Hoy '+d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'});return'<div class="aviso-card"><div class="aviso-titulo">'+a.title+(!a.leido?'<span class="aviso-new"></span>':'')+'</div><div class="aviso-cuerpo">'+a.body+'</div><div class="aviso-fecha">'+f+'</div></div>';}).join('');list.forEach(a=>a.leido=true);localStorage.setItem('avisos-comunidad',JSON.stringify(list));}
+(function(){
+  if(parseInt(localStorage.getItem('llamadas-unread')||'0')>0){const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
+  if(parseInt(localStorage.getItem('comunidad-unread')||'0')>0){const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
+  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='notice')saveAviso(e.data);});
+  // Mostrar nav si la app arranca en standby (initApp no pasa por goToStandby)
+  setTimeout(function(){
+    const standby=document.getElementById('screen-standby');
+    const nav=document.getElementById('nav-bar');
+    if(nav && standby && standby.style.display!=='none'){nav.style.display='flex';}
+  },50);
+})();
+</script>
+
+</body>
+</html>
