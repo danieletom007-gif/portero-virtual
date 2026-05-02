@@ -126,6 +126,7 @@ async function initDB() {
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS floor_label TEXT`,
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
+    `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS visitor_message TEXT`,
     `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
     // portals: user_id puede no existir si el schema original era diferente
     `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
@@ -642,6 +643,10 @@ wss.on('connection', (ws) => {
       case 'visitor-message':
         broadcast(ws.room, data, ws);
         if (data.message && ws.floorId) {
+          pool.query(
+            `UPDATE call_log SET visitor_message=$1 WHERE floor_id=$2 AND started_at=(SELECT MAX(started_at) FROM call_log WHERE floor_id=$2)`,
+            [data.message, ws.floorId]
+          ).catch(e => console.warn('visitor_message save:', e.message));
           pool.query('SELECT push_subscription FROM floors WHERE id=$1', [ws.floorId])
             .then(r => {
               if (!r.rows[0] || !r.rows[0].push_subscription) return;
@@ -651,10 +656,10 @@ wss.on('connection', (ws) => {
               webpush.sendNotification(sub, JSON.stringify({
                 title: '💬 Mensaje del visitante',
                 body: data.message,
-                url: 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&tab=llamadas&msg=' + encodeURIComponent(data.message)
+                url: 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&tab=llamadas'
               })).catch(e => console.warn('push visitor-message:', e.message));
             })
-            .catch(e => console.warn('push visitor-message query:', e.message));
+            .catch(e => console.warn('push query:', e.message));
         }
         break;
 
@@ -746,6 +751,19 @@ app.get('/test-push/:floorId', async (req, res) => {
       body: e.body
     });
   }
+});
+
+// ─── Historial de llamadas por vivienda ──────────────────────────────────────
+app.get('/api/floors/:floorId/calls', async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, started_at, answered, visitor_message
+       FROM call_log WHERE floor_id=$1
+       ORDER BY started_at DESC LIMIT 30`,
+      [req.params.floorId]
+    );
+    res.json(r.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Health ───────────────────────────────────────────────────────────────────
