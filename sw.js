@@ -32,7 +32,16 @@ self.addEventListener('push', e => {
       requireInteraction: true,
       // Vibración larga tipo llamada entrante
       vibrate:  [500, 200, 500, 200, 500, 200, 500, 200, 500, 200, 500],
-      data: { url: data.url || '/portero-virtual/vecino.html' }
+     data: { url: data.url || '/portero-virtual/vecino.html' }
+    }).then(() => {
+      if (data.type && data.type !== 'call') {
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(clients => {
+            clients.forEach(client => {
+              client.postMessage({ type: 'notice', title: data.title, body: data.body });
+            });
+          });
+      }
     })
   );
 });
