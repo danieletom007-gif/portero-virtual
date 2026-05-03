@@ -639,7 +639,6 @@ wss.on('connection', (ws) => {
       case 'hangup':
       case 'mute':
       case 'visitor-message':
-        console.log(`[visitor-message] room:${ws.room} clients:${getRoomClients(ws.room).size}`);
         broadcast(ws.room, data, ws);
         break;
 
