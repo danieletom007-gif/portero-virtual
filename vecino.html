@@ -1220,6 +1220,8 @@ function renderComunidad(){const el=document.getElementById('avisos-list'),list=
   if(parseInt(localStorage.getItem('llamadas-unread')||'0')>0){const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
   if(parseInt(localStorage.getItem('comunidad-unread')||'0')>0){const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
   if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='notice')saveAviso(e.data);});
+  // Leer ?msg= de la URL — mensaje del visitante llegado por push
+  (function(){var _p=new URLSearchParams(location.search);var _m=_p.get('msg');if(_m)saveMensajeVisitante(decodeURIComponent(_m));})();
   // Mostrar nav si la app arranca en standby (initApp no pasa por goToStandby)
   setTimeout(function(){
     const standby=document.getElementById('screen-standby');
