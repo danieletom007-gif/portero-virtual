@@ -35,7 +35,7 @@ self.addEventListener('push', e => {
     }).then(() => {
       // Si es aviso de comunidad: guardar en cache (app cerrada) y postMessage (app abierta)
       if (data.type && data.type !== 'call') {
-        const aviso = { type: 'notice', title: data.title, body: data.body, fecha: new Date().toISOString() };
+        const aviso = { type: data.type === 'visitor-message' ? 'visitor-message' : 'notice', title: data.title, body: data.body, fecha: new Date().toISOString() };
         return caches.open('portero-avisos-pending').then(cache => {
           return cache.put(
             new Request('pending-' + Date.now()),
