@@ -127,6 +127,8 @@ async function initDB() {
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS answered BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE call_log ADD COLUMN IF NOT EXISTS duration_seconds INT`,
     `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
+    // notices: id debe tener default uuid para no fallar en INSERT sin id explícito
+    `ALTER TABLE notices ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`,
     // portals: user_id puede no existir si el schema original era diferente
     `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
     // client_id: eliminar FK y NOT NULL del schema original
