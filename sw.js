@@ -36,15 +36,18 @@ self.addEventListener('push', e => {
       // Si es aviso de comunidad: guardar en cache (app cerrada) y postMessage (app abierta)
       if (data.type && data.type !== 'call') {
         const aviso = { type: data.type === 'visitor-message' ? 'visitor-message' : 'notice', title: data.title, body: data.body, fecha: new Date().toISOString() };
+        const cacheKey = 'pending-' + Date.now();
         return caches.open('portero-avisos-pending').then(cache => {
-          return cache.put(
-            new Request('pending-' + Date.now()),
-            new Response(JSON.stringify(aviso))
-          );
+          return cache.put(new Request(cacheKey), new Response(JSON.stringify(aviso)));
         }).then(() => {
           return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(clients => {
-              clients.forEach(client => client.postMessage(aviso));
+              if (clients.length > 0) {
+                // App abierta: postMessage y borrar del cache para no duplicar
+                clients.forEach(client => client.postMessage(aviso));
+                caches.open('portero-avisos-pending').then(c => c.delete(new Request(cacheKey)));
+              }
+              // App cerrada: queda en cache hasta que abra
             });
         });
       }
