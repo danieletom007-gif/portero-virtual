@@ -636,8 +636,27 @@ wss.on('connection', (ws) => {
       case 'busy':
       case 'hangup':
       case 'mute':
+        broadcast(ws.room, data, ws);
+        break;
+
       case 'visitor-message':
         broadcast(ws.room, data, ws);
+        if (data.message && ws.floorId) {
+          pool.query('SELECT push_subscription FROM floors WHERE id=$1', [ws.floorId])
+            .then(r => {
+              if (!r.rows[0] || !r.rows[0].push_subscription) return;
+              const sub = typeof r.rows[0].push_subscription === 'string'
+                ? JSON.parse(r.rows[0].push_subscription)
+                : r.rows[0].push_subscription;
+              const msgUrl = 'https://danieletom007-gif.github.io/portero-virtual/vecino.html?portal=' + ws.portalId + '&floor=' + ws.floorId + '&msg=' + encodeURIComponent(data.message);
+              webpush.sendNotification(sub, JSON.stringify({
+                title: '💬 Mensaje del visitante',
+                body: data.message,
+                url: msgUrl
+              })).catch(e => console.warn('push msg:', e.message));
+            })
+            .catch(e => console.warn('push msg query:', e.message));
+        }
         break;
 
       case 'chat':
