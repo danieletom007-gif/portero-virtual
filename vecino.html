@@ -435,6 +435,7 @@ const urlParams  = new URLSearchParams(location.search);
 const urlPortal  = urlParams.get('portal')    || localStorage.getItem('portero-portal-url') || '';
 const urlFloorId = urlParams.get('floor')     || localStorage.getItem('portero-floor-url')  || '';
 const urlContest = urlParams.get('contestar') === 'true';
+const urlMsg     = urlParams.get('msg') || '';
 
 // Guardar params si llegaron por URL (enlace del panel)
 if (urlParams.get('portal'))  localStorage.setItem('portero-portal-url', urlParams.get('portal'));
@@ -1161,6 +1162,8 @@ function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(msg); }
 
 // ─── ARRANCAR ─────────────────────────────────────────────────────────────────
 initApp();
+// Si llegamos desde push de mensaje del visitante, guardarlo
+if (urlMsg) { saveMensajeVisitante(decodeURIComponent(urlMsg)); }
 
 // Si el vecino llega desde una notificación push (?contestar=true)
 if (urlContest) {
