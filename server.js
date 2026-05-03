@@ -129,9 +129,6 @@ async function initDB() {
     `ALTER TABLE notices ADD COLUMN IF NOT EXISTS recipients INT DEFAULT 0`,
     // notices: id debe tener default uuid para no fallar en INSERT sin id explícito
     `ALTER TABLE notices ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`,
-    // call_log: floor_number y floor_letter pueden tener NOT NULL en BD legacy
-    `ALTER TABLE call_log ALTER COLUMN floor_number DROP NOT NULL`,
-    `ALTER TABLE call_log ALTER COLUMN floor_letter DROP NOT NULL`,
     // portals: user_id puede no existir si el schema original era diferente
     `ALTER TABLE portals ADD COLUMN IF NOT EXISTS user_id INT`,
     // client_id: eliminar FK y NOT NULL del schema original
@@ -641,9 +638,34 @@ wss.on('connection', (ws) => {
       case 'busy':
       case 'hangup':
       case 'mute':
-      case 'visitor-message':
         broadcast(ws.room, data, ws);
         break;
+
+      case 'visitor-message': {
+        broadcast(ws.room, data, ws);
+        // Push al vecino si la app está cerrada
+        if (ws.portalId && ws.floorId) {
+          try {
+            const fr = await pool.query(
+              'SELECT push_subscription, unit_label FROM floors WHERE id=$1 AND portal_id=$2',
+              [ws.floorId, ws.portalId]
+            );
+            const floor = fr.rows[0];
+            if (floor && floor.push_subscription) {
+              const sub = typeof floor.push_subscription === 'string'
+                ? JSON.parse(floor.push_subscription)
+                : floor.push_subscription;
+              await webpush.sendNotification(sub, JSON.stringify({
+                title: '💬 Mensaje del visitante',
+                body:  data.message,
+                type:  'visitor-message',
+                url:   'https://danieletom007-gif.github.io/portero-virtual/vecino.html'
+              }));
+            }
+          } catch (e) { console.warn('visitor-message push:', e.message); }
+        }
+        break;
+      }
 
       case 'chat':
         broadcast(ws.room, { type: 'chat', message: data.message, from: ws.role }, ws);
