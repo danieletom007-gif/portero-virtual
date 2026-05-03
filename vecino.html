@@ -1237,7 +1237,11 @@ function renderComunidad(){const el=document.getElementById('avisos-list'),list=
   if(parseInt(localStorage.getItem('llamadas-unread')||'0')>0){const d=document.getElementById('dot-llamadas');if(d)d.classList.add('show');}
   if(parseInt(localStorage.getItem('mensajes-unread')||'0')>0){const d=document.getElementById('dot-mensajes');if(d)d.classList.add('show');}
   if(parseInt(localStorage.getItem('comunidad-unread')||'0')>0){const d=document.getElementById('dot-comunidad');if(d)d.classList.add('show');}
-  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='notice')saveAviso(e.data);});
+  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
+    if(!e.data) return;
+    if(e.data.type==='notice') saveAviso(e.data);
+    else if(e.data.type==='visitor-message') saveMensajeVisitante(e.data.body);
+  });
   // Leer avisos pendientes guardados por el sw mientras la app estaba cerrada
   if('caches' in window){
     caches.open('portero-avisos-pending').then(cache=>{
@@ -1245,7 +1249,8 @@ function renderComunidad(){const el=document.getElementById('avisos-list'),list=
         keys.forEach(req=>{
           cache.match(req).then(res=>{
             if(res) res.json().then(aviso=>{
-              saveAviso(aviso);
+              if(aviso.type==='visitor-message') saveMensajeVisitante(aviso.body);
+              else saveAviso(aviso);
               cache.delete(req);
             });
           });
