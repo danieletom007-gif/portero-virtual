@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="version" content="2.1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0e1f5e">
+<meta name="theme-color" content="#0c0c0e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,12 +15,12 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#f2f4f8;--bg2:#e8ecf2;--bg3:#e2e7ef;--bg4:#cdd5e0;
-  --text:#1a2a3a;--text2:#4a6080;--text3:#8fa0b4;
-  --accent:#1e5fd4;--accent2:#0e1f5e;
+  --bg:#f0f6ff;--bg2:#e8f0fb;--bg3:#dde8f7;--bg4:#c8daf0;
+  --text:#1a3a5c;--text2:#378ADD;--text3:#85B7EB;
+  --accent:#378ADD;--accent2:#1a3a5c;
   --green:#22c55e;--red:#E24B4A;--orange:#f97316;
   --radius:14px;--radius-sm:8px;
-  --blue-dark:#0e1f5e;--blue-mid:#1a3a9e;--blue-light:#dde3ef;
+  --blue-dark:#1a3a5c;--blue-mid:#2563a8;--blue-light:#B5D4F4;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
@@ -60,7 +60,7 @@ select:focus{outline:none;border-color:var(--accent)}
 .success-icon{width:80px;height:80px;border-radius:50%;background:rgba(62,207,142,.15);display:flex;align-items:center;justify-content:center;margin-bottom:24px;font-size:36px}
 /* ---- STANDBY ---- */
 #screen-standby{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
-.standby-header{background:#0e1f5e;padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
+.standby-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
 .standby-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .standby-header .standby-label{color:#fff!important;font-size:18px;font-weight:700}
 .standby-header .standby-sub{color:rgba(255,255,255,.75)!important}
@@ -88,7 +88,7 @@ select:focus{outline:none;border-color:var(--accent)}
 input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius:6px;color:var(--text);padding:6px 8px;font-size:13px;width:110px}
 /* ---- INCOMING ---- */
 #screen-incoming{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
-.incoming-header{background:#0e1f5e;padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
+.incoming-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
 .incoming-header-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .incoming-header-name{color:#fff;font-size:17px;font-weight:700;margin-bottom:4px}
 .incoming-header-sub{color:rgba(255,255,255,.75);font-size:13px}
@@ -150,21 +150,21 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .quiet-bar.show{display:block}
 
 /* ── Menú navegación inferior ── */
-#nav-bar{position:fixed;bottom:0;left:0;right:0;height:68px;background:#fff;box-shadow:0 -1px 12px rgba(0,0,0,.08);z-index:500;display:none}
+#nav-bar{position:fixed;bottom:0;left:0;right:0;height:68px;background:#fff;border-top:1px solid var(--blue-light);z-index:500;display:none}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;padding:8px 0;position:relative}
-.nav-btn svg{width:22px;height:22px;stroke:#8fa0b4;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+.nav-btn svg{width:22px;height:22px;stroke:#B5D4F4;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
 .nav-btn.active svg{stroke:var(--blue-dark)}
-.nav-label{font-size:10px;font-weight:500;color:#8fa0b4;letter-spacing:.01em;transition:color .15s}
+.nav-label{font-size:10px;font-weight:500;color:#B5D4F4;letter-spacing:.01em;transition:color .15s}
 .nav-btn.active .nav-label{color:var(--blue-dark);font-weight:600}
 .nav-dot{position:absolute;top:4px;right:calc(50% - 16px);width:8px;height:8px;border-radius:50%;background:#E24B4A;display:none}
 .nav-dot.show{display:block}
 /* ── Pantallas secundarias ── */
 #screen-llamadas,#screen-comunidad,#screen-mensajes{background:var(--bg);position:fixed;inset:0;z-index:100;display:none;flex-direction:column;padding-bottom:68px}
-.sec-header{background:#0e1f5e;padding:40px 24px 20px;color:#fff}
+.sec-header{background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue-mid) 100%);padding:40px 24px 20px;color:#fff}
 .sec-title{font-size:20px;font-weight:700}
 .sec-list{flex:1;overflow-y:auto;padding:12px 16px}
 .sec-empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px}
-.llamada-card,.aviso-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);padding:14px 16px;margin-bottom:10px}
+.llamada-card,.aviso-card{background:#fff;border-radius:12px;border:1px solid var(--blue-light);padding:14px 16px;margin-bottom:10px}
 .llamada-card{display:flex;align-items:flex-start;gap:12px}
 .llamada-icono{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
 .llamada-icono.ok{background:#EAF3DE}.llamada-icono.ko{background:#FCEBEB}
@@ -258,29 +258,10 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 <div class="screen" id="screen-standby" style="display:none">
   <!-- Cabecera azul con logo -->
   <div class="standby-header">
-    <svg width="88" height="70" viewBox="0 0 180 144" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px">
-      <text x="90" y="56" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" fill="#ffffff" letter-spacing="4">VEO</text>
-      <rect x="48" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="65" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="82" y="66" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="99" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="116" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="44" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="65" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="82" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="99" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="120" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="52" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="69" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="86" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="103" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="62" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="79" y="111" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="96" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="76" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-      <rect x="91" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-    </svg>
-    <div class="standby-label" id="standby-portal-header" style="display:none">Mi portero</div>
+    <div class="standby-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
+    </div>
+    <div class="standby-label" id="standby-portal-header">Mi portero</div>
     <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
     <span class="standby-connected-badge"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>Conectado</span>
   </div>
@@ -328,28 +309,9 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 <div class="screen" id="screen-incoming" style="display:none">
   <!-- Cabecera azul con logo -->
   <div class="incoming-header">
-    <svg width="88" height="70" viewBox="0 0 180 144" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px">
-      <text x="90" y="56" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" fill="#ffffff" letter-spacing="4">VEO</text>
-      <rect x="48" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="65" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="82" y="66" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="99" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="116" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="44" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="65" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="82" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="99" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="120" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="52" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="69" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="86" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="103" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="62" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="79" y="111" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="96" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="76" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-      <rect x="91" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-    </svg>
+    <div class="incoming-header-logo">
+      <img src="/portero-virtual/icono.png" width="36" height="36" style="object-fit:contain">
+    </div>
     <div class="incoming-header-name" id="incoming-portal-name">Mi portero</div>
     <div class="incoming-header-sub">Visita en el portal</div>
   </div>
@@ -1241,80 +1203,17 @@ if (urlContest) {
 </div>
 
 <div id="screen-llamadas" style="display:none">
-  <div class="sec-header"><svg width="88" height="70" viewBox="0 0 180 144" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px">
-      <text x="90" y="56" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" fill="#ffffff" letter-spacing="4">VEO</text>
-      <rect x="48" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="65" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="82" y="66" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="99" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="116" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="44" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="65" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="82" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="99" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="120" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="52" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="69" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="86" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="103" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="62" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="79" y="111" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="96" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="76" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-      <rect x="91" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-    </svg><div class="sec-title">Llamadas</div></div>
+  <div class="sec-header"><img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block"><div class="sec-title">Llamadas</div></div>
   <div class="sec-list" id="llamadas-list"><div class="sec-empty">No hay llamadas registradas</div></div>
 </div>
 
 <div id="screen-comunidad" style="display:none">
-  <div class="sec-header"><svg width="88" height="70" viewBox="0 0 180 144" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px">
-      <text x="90" y="56" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" fill="#ffffff" letter-spacing="4">VEO</text>
-      <rect x="48" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="65" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="82" y="66" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="99" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="116" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="44" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="65" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="82" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="99" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="120" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="52" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="69" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="86" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="103" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="62" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="79" y="111" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="96" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="76" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-      <rect x="91" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-    </svg><div class="sec-title">Avisos de la comunidad</div></div>
+  <div class="sec-header"><img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block"><div class="sec-title">Avisos de la comunidad</div></div>
   <div class="sec-list" id="avisos-list"><div class="sec-empty">No hay avisos de la comunidad</div></div>
 </div>
 
 <div id="screen-mensajes" style="display:none">
-  <div class="sec-header"><svg width="88" height="70" viewBox="0 0 180 144" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px">
-      <text x="90" y="56" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" fill="#ffffff" letter-spacing="4">VEO</text>
-      <rect x="48" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="65" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="82" y="66" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="99" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="116" y="66" width="13" height="13" rx="2" fill="white"/>
-      <rect x="44" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="65" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="82" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="99" y="81" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="120" y="81" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="52" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="69" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="86" y="96" width="13" height="13" rx="2" fill="white" opacity="0.6"/>
-      <rect x="103" y="96" width="13" height="13" rx="2" fill="white" opacity="0.8"/>
-      <rect x="62" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="79" y="111" width="13" height="13" rx="2" fill="white" opacity="0.7"/>
-      <rect x="96" y="111" width="13" height="13" rx="2" fill="white" opacity="0.5"/>
-      <rect x="76" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-      <rect x="91" y="126" width="13" height="10" rx="2" fill="white" opacity="0.35"/>
-    </svg><div class="sec-title">Mensajes de visitantes</div></div>
+  <div class="sec-header"><img src="/portero-virtual/icono.png" width="32" height="32" style="object-fit:contain;margin-bottom:10px;display:block"><div class="sec-title">Mensajes de visitantes</div></div>
   <div class="sec-list" id="mensajes-list"><div class="sec-empty">No hay mensajes de visitantes</div></div>
 </div>
 
