@@ -62,7 +62,7 @@ select:focus{outline:none;border-color:var(--accent)}
 #screen-standby{background:var(--bg);display:flex;flex-direction:column;padding:0!important}
 .standby-header{background:#1400c8;padding:40px 24px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;margin:0}
 .standby-logo{width:56px;height:56px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
-.standby-header .standby-label{color:#fff!important;font-size:18px;font-weight:700}
+.standby-header .standby-label{color:#fff!important;font-size:18px;font-weight:700;margin-top:8px;margin-bottom:6px}
 .standby-header .standby-sub{color:rgba(255,255,255,.75)!important}
 .standby-connected-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:5px 12px;color:#fff;font-size:12px;margin-top:10px}
 .standby-body{flex:1;overflow-y:auto;padding:20px 8px}
@@ -205,10 +205,11 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 </div>
 
 <!-- ════════════ PANTALLA: SETUP ════════════ -->
-<div class="screen" id="screen-setup" style="display:none">
-  <div style="text-align:center;margin-bottom:8px">
-    <img src="/portero-virtual/icono.png" width="64" height="64" style="object-fit:contain">
+<div class="screen" id="screen-setup" style="display:none;padding:0!important;justify-content:flex-start">
+  <div style="background:#1400c8;width:100%;display:flex;justify-content:center;align-items:center;padding:32px 24px 24px">
+    <img src="/portero-virtual/logo-png.PNG" width="150" height="120" style="object-fit:contain">
   </div>
+  <div style="padding:24px;width:100%">
   <div class="setup-header">
     <p class="setup-title">Configura tu portero</p>
     <p class="setup-sub">Selecciona tu portal y tu vivienda para empezar a recibir llamadas</p>
@@ -227,6 +228,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
   </div>
 
   <button class="btn-primary" onclick="activate()">Activar portero</button>
+  </div>
 </div>
 
 <!-- ════════════ PANTALLA: CONFIRM ════════════ -->
@@ -258,7 +260,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 <div class="screen" id="screen-standby" style="display:none">
   <!-- Cabecera azul con logo -->
   <div class="standby-header">
-    <img src="/portero-virtual/logo-png.PNG" width="120" height="96" style="object-fit:contain;margin-bottom:8px">
+    <img src="/portero-virtual/logo-png.PNG" width="150" height="120" style="object-fit:contain;margin-bottom:16px">
     <div class="standby-label" id="standby-portal-header">Mi portero</div>
     <div class="standby-sub" id="standby-sub">Esperando llamadas…</div>
     <span class="standby-connected-badge"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>Conectado</span>
@@ -307,7 +309,7 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 <div class="screen" id="screen-incoming" style="display:none">
   <!-- Cabecera azul con logo -->
   <div class="incoming-header">
-    <img src="/portero-virtual/logo-png.PNG" width="120" height="96" style="object-fit:contain;margin-bottom:8px">
+    <img src="/portero-virtual/logo-png.PNG" width="150" height="120" style="object-fit:contain;margin-bottom:16px">
     <div class="incoming-header-name" id="incoming-portal-name">Mi portero</div>
     <div class="incoming-header-sub">Visita en el portal</div>
   </div>
