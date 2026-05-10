@@ -25,6 +25,7 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
 /* ---- INSTALL ---- */
+#screen-terms{background:var(--bg)}
 #screen-install{background:var(--bg)}
 .install-icon{width:96px;height:96px;border-radius:22px;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:24px}
 .install-icon svg{width:52px;height:52px;fill:#fff}
@@ -182,14 +183,74 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 
 <div class="quiet-bar" id="quiet-bar">🔕 Modo silencioso activo</div>
 
+<!-- ════════════ PANTALLA: BIENVENIDA / PRIVACIDAD ════════════ -->
+<div class="screen" id="screen-terms" style="display:none;justify-content:flex-start;padding:0!important">
+  <div style="background:#1400c8;width:100%;display:flex;justify-content:center;align-items:center;padding:28px 24px 24px">
+    <img src="/portero-virtual/logo-png.PNG" width="130" height="104" style="object-fit:contain">
+  </div>
+  <div style="padding:24px;width:100%;overflow-y:auto;flex:1;display:flex;flex-direction:column">
+    <p style="font-size:24px;font-weight:700;color:#1400c8;margin:0 0 4px;text-align:center">¡Bienvenido a VEO QR!</p>
+    <p style="font-size:15px;color:#4a6080;margin:0 0 24px;text-align:center">Tu privacidad, nuestra prioridad</p>
+    <p style="font-size:15px;color:#4a6080;line-height:1.6;margin:0 0 24px">Queremos explicarte cómo funciona el sistema antes de que lo instales.</p>
+
+    <div style="display:flex;flex-direction:column;gap:20px;margin-bottom:28px">
+
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="flex-shrink:0;width:44px;height:44px;background:#1400c8;border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 16v1a2 2 0 01-2 2H3a2 2 0 01-2-2V7a2 2 0 012-2h2m5.66 0H14a2 2 0 012 2v3"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </div>
+        <div>
+          <p style="font-size:16px;font-weight:700;color:#1a2a3a;margin:0 0 6px">¿El visitante puede verme?</p>
+          <p style="font-size:15px;color:#4a6080;margin:0;line-height:1.6">No. Tú puedes ver al visitante, pero el visitante nunca puede verte. La cámara solo funciona en un sentido.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="flex-shrink:0;width:44px;height:44px;background:#1400c8;border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </div>
+        <div>
+          <p style="font-size:16px;font-weight:700;color:#1a2a3a;margin:0 0 6px">¿Se graban mis imágenes?</p>
+          <p style="font-size:15px;color:#4a6080;margin:0;line-height:1.6">No. Las videollamadas son en tiempo real y no se almacenan en ningún servidor. Solo se registra la fecha y hora de cada llamada.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="flex-shrink:0;width:44px;height:44px;background:#1400c8;border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"/>
+            <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/>
+            <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+        <div>
+          <p style="font-size:16px;font-weight:700;color:#1a2a3a;margin:0 0 6px">¿Se graba el audio?</p>
+          <p style="font-size:15px;color:#4a6080;margin:0;line-height:1.6">No. Las llamadas no se graban. Solo se escuchará tu voz si decides hablar con el visitante.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="btn-primary" style="font-size:17px;font-weight:700;width:100%" onclick="acceptTerms()">Acepto y continuar</button>
+  </div>
+</div>
+
 <!-- ════════════ PANTALLA: INSTALL ════════════ -->
 <div class="screen" id="screen-install" style="justify-content:flex-start;padding:0!important">
   <div style="background:#1400c8;width:100%;display:flex;justify-content:center;align-items:center;padding:28px 24px 24px;margin-bottom:24px">
     <img src="/portero-virtual/logo-png.PNG" width="170" height="144" style="object-fit:contain">
   </div>
   <div style="padding:0 24px;width:100%;display:flex;flex-direction:column;align-items:center">
-  <p class="install-title">Instala tu portero</p>
-  <p class="install-sub">Para recibir llamadas necesitas instalar esta app en tu móvil</p>
+  <p class="install-title">Instala tu VEO QR</p>
+  <p class="install-sub">Para recibir llamadas instala la app en tu móvil</p>
 
   <!-- Sección dinámica: se rellena por JS según el dispositivo -->
   <div id="install-steps-wrap" style="width:100%;max-width:340px;margin-bottom:24px"></div>
@@ -466,9 +527,13 @@ function initApp() {
       if (addrEl) addrEl.textContent = 'Abre la app desde el enlace que te envió';
     }
   } else {
-    // No instalada — mostrar siempre pantalla de instalación primero
-    showAllScreens('screen-install');
-    showInstallSection();
+    // No instalada — mostrar términos primero si no aceptados
+    if (localStorage.getItem('veoqr-terms-accepted') === '1') {
+      showAllScreens('screen-install');
+      showInstallSection();
+    } else {
+      showAllScreens('screen-terms');
+    }
   }
   checkQuietMode();
 }
@@ -496,6 +561,7 @@ function loadStoredConfig() {
 // ─── PANTALLAS ────────────────────────────────────────────────────────────────
 function showAllScreens(activeId) {
   const screens = [
+    'screen-terms',
     'screen-install',
     'screen-setup',
     'screen-confirm',
@@ -576,6 +642,12 @@ window.addEventListener('appinstalled', () => {
   localStorage.setItem('portero-installed', '1');
   checkInstalled();
 });
+
+function acceptTerms() {
+  localStorage.setItem('veoqr-terms-accepted', '1');
+  showAllScreens('screen-install');
+  showInstallSection();
+}
 
 function checkInstalled() {
   localStorage.setItem('portero-installed', '1');
