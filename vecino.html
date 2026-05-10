@@ -761,8 +761,10 @@ async function setupPush() {
     const reg = await navigator.serviceWorker.register('/portero-virtual/sw.js');
     await navigator.serviceWorker.ready;
 
-    // Pedir permiso de notificaciones — muestra popup nativo del sistema
-    const permission = await Notification.requestPermission();
+    // Pedir permiso solo si no está ya concedido
+    const permission = Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notificaciones no concedidas:', permission);
       return;
