@@ -40,20 +40,9 @@
   /* ── Cabecera del edificio (lo primero que ve el visitante) ── */
   .building-header {
     width: 100%;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border2);
-    padding: 28px 24px 22px;
+    background: #1400c8;
+    padding: 20px 24px 16px;
     text-align: center;
-    position: relative;
-  }
-
-  .building-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: var(--accent);
-    opacity: 0.7;
   }
 
   .portal-badge {
@@ -470,13 +459,10 @@
      Siempre visible en todas las pantallas
 ════════════════════════════════════════════ -->
 <div class="building-header" id="building-header">
-  <div class="portal-badge">
-    <div class="portal-badge-dot"></div>
-    Portero virtual
-  </div>
-  <div class="building-name" id="building-name">Cargando...</div>
-  <div class="building-address" id="building-address"></div>
-  <div class="building-city" id="building-city"></div>
+  <img src="logo-png.PNG" width="100" height="80" style="object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto">
+  <div class="building-name" id="building-name" style="color:#fff">Cargando...</div>
+  <div class="building-address" id="building-address" style="color:rgba(255,255,255,0.8)"></div>
+  <div class="building-city" id="building-city" style="color:rgba(255,255,255,0.7)"></div>
 </div>
 
 <!-- ══════════════════════════════════════════
