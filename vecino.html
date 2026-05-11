@@ -1017,10 +1017,11 @@ async function handleOffer(sdp) {
           const ph = document.getElementById('video-placeholder');
           if (ph) { ph.style.opacity = '0'; setTimeout(() => ph.style.display = 'none', 500); }
         };
-        // Mostrar también en preview de pantalla incoming (antes de contestar)
+        // Preview antes de contestar — asignar en cuanto llega el track
         const preview = document.getElementById('preview-video');
         if (preview) {
           preview.srcObject = streams[0];
+          preview.play().catch(() => {});
           preview.onplaying = () => {
             const ph = document.getElementById('preview-placeholder');
             if (ph) { ph.style.opacity = '0'; setTimeout(() => ph.style.display = 'none', 500); }
