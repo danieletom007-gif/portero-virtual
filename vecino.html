@@ -853,18 +853,7 @@ function showActivationSuccess() {
   }
 
   showAllScreens('screen-success');
-  // Cuenta atrás de 4 segundos
-  let secs = 4;
-  const numEl = document.getElementById('countdown-num');
-  if (numEl) numEl.textContent = secs;
-  const interval = setInterval(() => {
-    secs--;
-    if (numEl) numEl.textContent = secs;
-    if (secs <= 0) {
-      clearInterval(interval);
-      goToStandby();
-    }
-  }, 1000);
+  // Sin cuenta atrás — el vecino avanza manualmente tras comprobar notificaciones
 }
 
 function goToStandby() {
