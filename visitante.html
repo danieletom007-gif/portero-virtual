@@ -812,28 +812,31 @@ async function startCall() {
   show('screen-calling');
   setStep(1);
 
-  // Capturar foto del visitante — esperar a que el video tenga frames
+  // Capturar foto del visitante usando video temporal con dimensiones reales
   window._visitorPhoto = null;
   await new Promise(resolve => {
-    const v = document.getElementById('local-video');
-    let attempts = 0;
-    const tryCapture = () => {
-      attempts++;
-      if (v && v.videoWidth > 0) {
-        try {
-          const c = document.createElement('canvas');
-          c.width = 320; c.height = 240;
-          c.getContext('2d').drawImage(v, 0, 0, 320, 240);
-          window._visitorPhoto = c.toDataURL('image/jpeg', 0.6);
-        } catch(e) {}
-        resolve();
-      } else if (attempts < 5) {
-        setTimeout(tryCapture, 200);
-      } else {
-        resolve(); // máximo 2 segundos de espera
-      }
-    };
-    setTimeout(tryCapture, 300);
+    try {
+      const tmpVideo = document.createElement('video');
+      tmpVideo.srcObject = localStream;
+      tmpVideo.muted = true;
+      tmpVideo.playsInline = true;
+      tmpVideo.width = 320;
+      tmpVideo.height = 240;
+      tmpVideo.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:320px;height:240px;top:-9999px';
+      document.body.appendChild(tmpVideo);
+      tmpVideo.play().then(() => {
+        setTimeout(() => {
+          try {
+            const c = document.createElement('canvas');
+            c.width = 320; c.height = 240;
+            c.getContext('2d').drawImage(tmpVideo, 0, 0, 320, 240);
+            window._visitorPhoto = c.toDataURL('image/jpeg', 0.6);
+          } catch(e) {}
+          document.body.removeChild(tmpVideo);
+          resolve();
+        }, 600);
+      }).catch(() => { document.body.removeChild(tmpVideo); resolve(); });
+    } catch(e) { resolve(); }
   });
 
   // Timeout sin respuesta + contador visual
