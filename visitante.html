@@ -815,7 +815,7 @@ async function startCall() {
       const bitmap = await capture.grabFrame();
       ctx.drawImage(bitmap, 0, 0, 320, 240);
       window._visitorPhoto = canvas.toDataURL('image/jpeg', 0.6);
-    } catch { window._visitorPhoto = null; }
+    } catch(e) { console.warn('foto visitante error:', e); window._visitorPhoto = null; }
   } catch (err) {
     showError('No se pudo acceder a la cámara o el micrófono: ' + err.message);
     return;
