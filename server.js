@@ -461,6 +461,10 @@ app.post('/api/test-push', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('test-push error:', e);
+    // Si la suscripción expiró, limpiarla de la BD
+    if (e.statusCode === 410 || (e.body && e.body.includes('unsubscribed or expired'))) {
+      await pool.query('UPDATE floors SET push_subscription = NULL WHERE id = $1', [floorId]);
+    }
     res.status(500).json({ error: e.message });
   }
 });
