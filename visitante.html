@@ -777,9 +777,7 @@ async function startCall() {
   callRoom = `${portalId}-${unitId}`;
 
   // Actualizar pantalla "llamando"
-  document.getElementById('calling-building-label').textContent = portalData.name;
-  document.getElementById('calling-dest-label').textContent     = unitLabel;
-  document.getElementById('calling-address-label').textContent  = portalData.address + (portalData.city ? ', ' + portalData.city : '');
+  document.getElementById('calling-dest-label').textContent = unitLabel;
 
   // Pedir cámara + micrófono
   try {
