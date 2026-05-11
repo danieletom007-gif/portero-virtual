@@ -812,6 +812,20 @@ async function startCall() {
   show('screen-calling');
   setStep(1);
 
+  // Capturar foto del visitante para mostrar al vecino
+  window._visitorPhoto = null;
+  setTimeout(() => {
+    try {
+      const v = document.getElementById('local-video');
+      if (v && v.videoWidth > 0) {
+        const c = document.createElement('canvas');
+        c.width = 320; c.height = 240;
+        c.getContext('2d').drawImage(v, 0, 0, 320, 240);
+        window._visitorPhoto = c.toDataURL('image/jpeg', 0.6);
+      }
+    } catch(e) { window._visitorPhoto = null; }
+  }, 800);
+
   // Timeout sin respuesta + contador visual
   let countdownSecs = RING_TIMEOUT_MS / 1000;
   const countdownEl = document.getElementById('ring-countdown');
@@ -838,7 +852,7 @@ function connectWS() {
     const selU = document.getElementById('sel-unit');
     const floorId = selU ? selU.value : '';
     const floorLabel = selU ? (selU.options[selU.selectedIndex]?.text || '') : '';
-    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel });
+    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel, photo: window._visitorPhoto || null });
     setStep(1);
   };
 
