@@ -824,8 +824,6 @@ async function startCall() {
 
   ringTimeout = setTimeout(() => {
     clearInterval(countdownInterval);
-    if (ws) ws.close();
-    stopLocalStream();
     show('screen-noanswer');
   }, RING_TIMEOUT_MS);
 
@@ -975,7 +973,7 @@ function hangup(notify = true) {
   show('screen-form');
 }
 
-function goHome() { show('screen-form'); }
+function goHome() { if (ws) { ws.close(); ws = null; } stopLocalStream(); show('screen-form'); }
 
 // ── Mensaje del visitante al vecino ───────────────────────────────────────────
 function sendVisitorMessage() {
@@ -991,6 +989,8 @@ function sendVisitorMessage() {
   if (ok) ok.style.display = 'block';
   if (btn) btn.style.display = 'none';
   if (input) input.disabled = true;
+  // Cerrar WebSocket después de enviar
+  setTimeout(() => { if (ws) { ws.close(); ws = null; } stopLocalStream(); }, 500);
 }
 
 // ── Mute ──────────────────────────────────────────────────
