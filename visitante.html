@@ -804,18 +804,6 @@ async function startCall() {
       audio: true
     });
     document.getElementById('local-video').srcObject = localStream;
-    // Capturar foto del visitante para mostrar al vecino antes de contestar
-    try {
-      await new Promise(r => setTimeout(r, 500)); // esperar que la cámara se estabilice
-      const canvas = document.createElement('canvas');
-      canvas.width = 320; canvas.height = 240;
-      const ctx = canvas.getContext('2d');
-      const vt = localStream.getVideoTracks()[0];
-      const capture = new ImageCapture(vt);
-      const bitmap = await capture.grabFrame();
-      ctx.drawImage(bitmap, 0, 0, 320, 240);
-      window._visitorPhoto = canvas.toDataURL('image/jpeg', 0.6);
-    } catch(e) { console.warn('foto visitante error:', e); window._visitorPhoto = null; }
   } catch (err) {
     showError('No se pudo acceder a la cámara o el micrófono: ' + err.message);
     return;
@@ -852,7 +840,7 @@ function connectWS() {
     const selU = document.getElementById('sel-unit');
     const floorId = selU ? selU.value : '';
     const floorLabel = selU ? (selU.options[selU.selectedIndex]?.text || '') : '';
-    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel, photo: window._visitorPhoto || null });
+    send({ type: 'join', room: callRoom, role: 'visitor', portalId, floorId, floorLabel });
     setStep(1);
   };
 
