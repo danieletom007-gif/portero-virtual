@@ -96,10 +96,10 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
 .incoming-preview{width:100%;height:220px;background:#111;position:relative;overflow:hidden;flex-shrink:0}
 .incoming-preview img{width:100%;height:100%;object-fit:cover;display:block}
 .incoming-preview-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111}
-.incoming-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;padding:32px 20px}
-.incoming-ring{width:110px;height:110px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;position:relative;font-size:44px}
+.incoming-body{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;padding:16px 20px 80px}
+.incoming-ring{width:56px;height:56px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:10px;position:relative;font-size:24px}
 .incoming-ring::before,
-.incoming-ring::after{content:'';position:absolute;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:ring 2s ease-out infinite}
+.incoming-ring::after{content:'';position:absolute;border-radius:50%;border:2px solid #1400c8;opacity:0;animation:ring 2s ease-out infinite}
 .incoming-ring::after{animation-delay:.7s}
 @keyframes ring{0%{width:110px;height:110px;opacity:.6}100%{width:180px;height:180px;opacity:0}}
 .incoming-label{font-size:20px;font-weight:600;margin-bottom:6px}
@@ -382,7 +382,12 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
   </div>
   <!-- Cuerpo blanco con animación y botones -->
   <div class="incoming-body">
-    <div class="incoming-ring">📞</div>
+    <div class="incoming-ring">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="#1400c8" stroke="#1400c8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+      </svg>
+    </div>
     <p class="incoming-label" style="color:var(--blue-dark)">Llamada entrante</p>
     <p class="incoming-sub" id="incoming-sub" style="color:var(--text2)">Alguien está llamando</p>
     <div class="incoming-actions">
@@ -926,16 +931,18 @@ async function handleWsMessage(data) {
       if (sub) sub.textContent = `Visita para ${myLabel}`;
       playRingTone();
       saveLlamada(data);
-      // Mostrar foto del visitante si viene en el mensaje
-      if (data.photo) {
-        const wrap = document.getElementById('incoming-preview-wrap');
-        const ph = document.getElementById('preview-placeholder');
-        if (wrap) {
-          const img = document.createElement('img');
-          img.src = data.photo;
-          wrap.appendChild(img);
-          if (ph) ph.style.display = 'none';
-        }
+      // Limpiar foto anterior y mostrar la nueva
+      const wrap = document.getElementById('incoming-preview-wrap');
+      const ph = document.getElementById('preview-placeholder');
+      if (wrap) {
+        wrap.querySelectorAll('img').forEach(i => i.remove());
+        if (ph) ph.style.display = 'flex';
+      }
+      if (data.photo && wrap) {
+        const img = document.createElement('img');
+        img.src = data.photo;
+        wrap.appendChild(img);
+        if (ph) ph.style.display = 'none';
       }
       break;
     }
