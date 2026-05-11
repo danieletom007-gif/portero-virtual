@@ -339,12 +339,24 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
         <span class="slider"></span>
       </label>
     </div>
-    <div class="quiet-times" id="quiet-times">
-      <div class="time-row">
-        <span>De</span>
-        <input type="time" id="quiet-from" value="22:00" onchange="saveQuiet()">
-        <span>a</span>
-        <input type="time" id="quiet-to" value="09:00" onchange="saveQuiet()">
+    <div class="standby-row">
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span class="standby-row-label">Horario no molestar</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-schedule" onchange="toggleSchedule()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="quiet-times" id="quiet-times">
+          <div class="time-row">
+            <span>De</span>
+            <input type="time" id="quiet-from" value="22:00" onchange="saveQuiet()">
+            <span>a</span>
+            <input type="time" id="quiet-to" value="09:00" onchange="saveQuiet()">
+          </div>
+          <div id="schedule-active-label" style="display:none;font-size:12px;color:#1400c8;font-weight:600;margin-top:4px">✅ Horario activo</div>
+        </div>
       </div>
     </div>
     <div class="standby-row" id="notif-row">
@@ -1198,9 +1210,7 @@ async function activarNotificaciones() {
 }
 
 function toggleQuiet() {
-  const checked = document.getElementById('toggle-quiet').checked;
-  const times   = document.getElementById('quiet-times');
-  if (times) times.classList.toggle('visible', checked);
+  // Solo silencio manual inmediato — sin tocar el horario
   saveQuiet();
 }
 
@@ -1213,15 +1223,33 @@ function saveQuiet() {
   localStorage.setItem('portero-quiet-to',   to);
 }
 
+function toggleSchedule() {
+  const checked = document.getElementById('toggle-schedule').checked;
+  const times   = document.getElementById('quiet-times');
+  const label   = document.getElementById('schedule-active-label');
+  if (times) times.classList.toggle('visible', checked);
+  if (label) label.style.display = checked ? 'block' : 'none';
+  localStorage.setItem('portero-schedule', checked ? '1' : '0');
+  saveQuiet();
+}
+
 function checkQuietMode() {
-  const stored = localStorage.getItem('portero-quiet') === '1';
+  // Modo silencioso manual
+  const storedQuiet = localStorage.getItem('portero-quiet') === '1';
   const toggle = document.getElementById('toggle-quiet');
+  if (toggle) toggle.checked = storedQuiet;
+
+  // Horario no molestar
+  const storedSchedule = localStorage.getItem('portero-schedule') === '1';
+  const toggleSched = document.getElementById('toggle-schedule');
   const times  = document.getElementById('quiet-times');
+  const label  = document.getElementById('schedule-active-label');
   const from   = localStorage.getItem('portero-quiet-from') || '22:00';
   const to     = localStorage.getItem('portero-quiet-to')   || '09:00';
 
-  if (toggle) toggle.checked = stored;
-  if (times)  times.classList.toggle('visible', stored);
+  if (toggleSched) toggleSched.checked = storedSchedule;
+  if (times)  times.classList.toggle('visible', storedSchedule);
+  if (label)  label.style.display = storedSchedule ? 'block' : 'none';
 
   const fromEl = document.getElementById('quiet-from');
   const toEl   = document.getElementById('quiet-to');
@@ -1230,7 +1258,10 @@ function checkQuietMode() {
 }
 
 function isQuietMode() {
-  if (localStorage.getItem('portero-quiet') !== '1') return false;
+  // Silencio manual activo
+  if (localStorage.getItem('portero-quiet') === '1') return true;
+  // Horario programado activo y dentro del rango
+  if (localStorage.getItem('portero-schedule') !== '1') return false;
   const from = localStorage.getItem('portero-quiet-from') || '22:00';
   const to   = localStorage.getItem('portero-quiet-to')   || '09:00';
   const now  = new Date();
