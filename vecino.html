@@ -371,6 +371,12 @@ input[type=time]{background:var(--bg4);border:1px solid var(--bg4);border-radius
         Activar notificaciones
       </button>
     </div>
+    <!-- Botón probar notificaciones -->
+    <div style="margin-top:12px">
+      <button id="btn-test-push" onclick="testPush()" style="width:100%;padding:11px;background:#1400c8;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span>📳</span><span id="test-push-label">Probar notificaciones</span>
+      </button>
+    </div>
   </div>
 
 
@@ -1221,6 +1227,82 @@ function saveQuiet() {
   localStorage.setItem('portero-quiet',      checked ? '1' : '0');
   localStorage.setItem('portero-quiet-from', from);
   localStorage.setItem('portero-quiet-to',   to);
+}
+
+async function testPush() {
+  const btn = document.getElementById('btn-test-push');
+  const label = document.getElementById('test-push-label');
+  if (!myPortalId || !myFloorId) {
+    label.textContent = '⚠️ Configura tu portero primero';
+    setTimeout(() => label.textContent = 'Probar notificaciones', 3000);
+    return;
+  }
+  btn.disabled = true;
+  label.textContent = 'Enviando prueba...';
+  try {
+    const res = await fetch(`${SERVER}/api/test-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portalId: myPortalId, floorId: myFloorId })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      btn.style.background = '#16a34a';
+      label.textContent = '✅ Notificación enviada — comprueba tu móvil';
+      setTimeout(() => {
+        btn.style.background = '#1400c8';
+        label.textContent = 'Probar notificaciones';
+        btn.disabled = false;
+      }, 4000);
+    } else {
+      throw new Error(data.error);
+    }
+  } catch(e) {
+    btn.style.background = '#dc2626';
+    label.textContent = '❌ Error — activa las notificaciones primero';
+    setTimeout(() => {
+      btn.style.background = '#1400c8';
+      label.textContent = 'Probar notificaciones';
+      btn.disabled = false;
+    }, 4000);
+  }
+}
+
+async function testPush() {
+  const btn = document.getElementById('btn-test-push');
+  const label = document.getElementById('test-push-label');
+  if (!myPortalId || !myFloorId) {
+    label.textContent = '⚠️ Configura tu portero primero';
+    setTimeout(() => { label.textContent = 'Probar notificaciones'; }, 3000);
+    return;
+  }
+  btn.disabled = true;
+  label.textContent = 'Enviando prueba...';
+  try {
+    const res = await fetch(`${SERVER}/api/test-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portalId: myPortalId, floorId: myFloorId })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      btn.style.background = '#16a34a';
+      label.textContent = '✅ Notificación enviada';
+      setTimeout(() => {
+        btn.style.background = '#1400c8';
+        label.textContent = 'Probar notificaciones';
+        btn.disabled = false;
+      }, 4000);
+    } else { throw new Error(data.error); }
+  } catch(e) {
+    btn.style.background = '#dc2626';
+    label.textContent = '❌ Activa las notificaciones primero';
+    setTimeout(() => {
+      btn.style.background = '#1400c8';
+      label.textContent = 'Probar notificaciones';
+      btn.disabled = false;
+    }, 4000);
+  }
 }
 
 function toggleSchedule() {
