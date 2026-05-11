@@ -579,7 +579,7 @@ wss.on('connection', (ws) => {
         console.log(`[WS] join → room:${room} role:${role}`);
 
         if (role === 'visitor') {
-          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room }, ws);
+          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room, photo: data.photo || null }, ws);
 
           // Log de llamada
           try {
