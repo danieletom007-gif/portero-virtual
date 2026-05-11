@@ -927,6 +927,21 @@ async function handleWsMessage(data) {
       if (sub) sub.textContent = `Visita para ${myLabel}`;
       playRingTone();
       saveLlamada(data);
+      // Mostrar foto del visitante en el preview si viene en el mensaje
+      if (data.photo) {
+        const ph = document.getElementById('preview-placeholder');
+        if (ph) ph.style.display = 'none';
+        const previewWrap = document.querySelector('.incoming-preview');
+        if (previewWrap) {
+          const existing = previewWrap.querySelector('img.visitor-photo');
+          if (existing) existing.remove();
+          const img = document.createElement('img');
+          img.className = 'visitor-photo';
+          img.src = data.photo;
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:4';
+          previewWrap.appendChild(img);
+        }
+      }
       break;
     }
 
