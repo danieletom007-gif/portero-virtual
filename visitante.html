@@ -831,7 +831,8 @@ async function startCall() {
             c.width = 320; c.height = 240;
             c.getContext('2d').drawImage(tmpVideo, 0, 0, 320, 240);
             window._visitorPhoto = c.toDataURL('image/jpeg', 0.6);
-          } catch(e) {}
+            console.log('FOTO CAPTURADA:', window._visitorPhoto ? window._visitorPhoto.substring(0,50) : 'NULL');
+          } catch(e) { console.warn('FOTO ERROR:', e); }
           document.body.removeChild(tmpVideo);
           resolve();
         }, 600);
