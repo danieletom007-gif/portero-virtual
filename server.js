@@ -436,6 +436,35 @@ app.post('/api/subscribe', async (req, res) => {
   }
 });
 
+// ─── TEST PUSH ───────────────────────────────────────────────────────────────
+app.post('/api/test-push', async (req, res) => {
+  const { portalId, floorId } = req.body;
+  if (!portalId || !floorId) return res.status(400).json({ error: 'portalId y floorId obligatorios' });
+  try {
+    const r = await pool.query(
+      'SELECT push_subscription FROM floors WHERE id=$1 AND portal_id=$2',
+      [floorId, portalId]
+    );
+    const floor = r.rows[0];
+    if (!floor || !floor.push_subscription) {
+      return res.status(404).json({ error: 'No hay suscripción push registrada' });
+    }
+    const sub = typeof floor.push_subscription === 'string'
+      ? JSON.parse(floor.push_subscription)
+      : floor.push_subscription;
+    await webpush.sendNotification(sub, JSON.stringify({
+      title: '✅ Notificaciones activas',
+      body: 'Las notificaciones de VEO QR funcionan correctamente.',
+      type: 'test',
+      url: '/portero-virtual/vecino.html'
+    }));
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('test-push error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── AVISOS PUSH ──────────────────────────────────────────────────────────────
 app.post('/api/portals/:id/notify', authMiddleware, async (req, res) => {
   const { title, body, type, floorIds } = req.body;
@@ -579,7 +608,7 @@ wss.on('connection', (ws) => {
         console.log(`[WS] join → room:${room} role:${role}`);
 
         if (role === 'visitor') {
-          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room, photo: data.photo || null }, ws);
+          broadcast(room, { type: 'visitor-calling', portalId, floorId, floorLabel, room }, ws);
 
           // Log de llamada
           try {
