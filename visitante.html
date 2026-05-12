@@ -897,7 +897,7 @@ function connectWS() {
 
 // ── WebRTC ────────────────────────────────────────────────
 async function createPeer() {
-  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'all' });
+  pc = new RTCPeerConnection({ iceServers: STUN_SERVERS, iceTransportPolicy: 'relay' });
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   pc.ontrack = ({ track, streams }) => {
